@@ -1,0 +1,125 @@
+name: Single screen release
+
+# Builds the engine-only FireRed3DS.3dsx of this fork in a pinned environment
+# (.github/release_env, .github/release-env.toml: the Emerald 3DS release
+# environment) and publishes it as a GitHub release. A data pack only works
+# with the executable it was made for, so the build's game-data staging - the
+# inputs a recipe for this executable is made from - is published too, but
+# only encrypted to .github/pack-inputs.pub.pem, in a temporary prerelease:
+# the recipe is made where that key's private half and the player's own ROM
+# are, never here. No ROM is used or shipped.
+
+on:
+  push:
+    branches: [main]
+    # Changes to the docs, the README or the other workflows alone do not
+    # rebuild the game; a new key or a change to this workflow does.
+    paths-ignore: ['docs/**', 'README.md', '.github/payload/**', '.github/cleanup-releases.txt',
+                   '.github/workflows/builder-appimage.yml', '.github/workflows/cleanup-releases.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: single-screen-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release environment image
+        run: |
+          read PY_IMAGE PILLOW DKA_IMAGE < <(python3 - <<'EOF'
+          import tomllib
+          env = tomllib.load(open(".github/release-env.toml", "rb"))
+          print(env["python"]["image"], env["python"]["pillow"], env["devkitarm"]["image"])
+          EOF
+          )
+          echo "python=$PY_IMAGE pillow=$PILLOW devkitarm=$DKA_IMAGE"
+          docker build -t release-env \
+            --build-arg PYTHON_IMAGE="$PY_IMAGE" \
+            --build-arg DEVKITARM_IMAGE="$DKA_IMAGE" \
+            --build-arg PILLOW="$PILLOW" .github/release_env
+
+      - name: Source tree
+        run: python3 tools/bootstrap.py --dir build/upstream
+
+      # `make all` makes the staging the recipe is cut from (tools/build_release.py),
+      # `make release` the executable that ships.
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:$PWD" -w "$PWD/build/upstream" -e HOME=/tmp release-env \
+            bash -c "set -e; make -j4 tools; make -j4 generated; \
+                     make -C 3ds_port -j4 all PYTHON=python3; \
+                     make -C 3ds_port -j4 release PYTHON=python3"
+          sudo chown -R "$(id -u):$(id -g)" build
+          ls -l build/upstream/3ds_port/dist/
+
+      - name: Encrypted recipe inputs
+        run: |
+          P=build/upstream/3ds_port
+          mkdir -p inputs/build inputs/dist
+          cp -r "$P/romfs" inputs/romfs
+          cp "$P"/dist/FireRed3DS.3dsx "$P"/dist/FireRed3DS.smdh inputs/dist/
+          docker run --rm -v "$PWD:$PWD" -w "$PWD" release-env \
+            arm-none-eabi-objcopy --strip-debug "$P/build/gamedata_image.elf" inputs/build/gamedata_image.elf
+          sudo chown -R "$(id -u):$(id -g)" inputs
+          # The voxel generators' inputs as this build's tree has them (the
+          # recipe finds each in the ROM; the set must be the build's own).
+          python3 - <<'EOF'
+          import shutil, sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import vtree_manifest
+          root, out = Path("build/upstream"), Path("inputs/decomp")
+          files = vtree_manifest.binary_inputs(root)
+          files += [f + ".lz" for f in files if (root / (f + ".lz")).exists()]
+          for rel in files:
+              (out / rel).parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(root / rel, out / rel)
+          (out / "binary_inputs.txt").write_text("\n".join(files) + "\n")
+          print("voxel inputs:", len(files))
+          EOF
+          tar -C inputs -cf - . | xz -T0 -6 > inputs.tar.xz
+          openssl rand -out inputs.key 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass file:inputs.key -in inputs.tar.xz -out recipe-inputs.tar.xz.enc
+          openssl pkeyutl -encrypt -pubin -inkey .github/pack-inputs.pub.pem \
+            -pkeyopt rsa_padding_mode:oaep -in inputs.key -out recipe-inputs.key.enc
+          rm -f inputs.key inputs.tar.xz
+          rm -rf inputs
+          ls -l recipe-inputs.*
+
+      - name: Audit the files that ship
+        run: |
+          mkdir -p ship
+          cp build/upstream/3ds_port/dist/FireRed3DS.3dsx build/upstream/3ds_port/dist/FireRed3DS.smdh ship/
+          python3 -c "import zipfile,pathlib; z=zipfile.ZipFile('ship.zip','w'); [z.write(p, 'payload/' + p.name) for p in pathlib.Path('ship').iterdir()]"
+          python3 tools/release_audit.py --zip ship.zip --strict
+          (cd ship && sha256sum FireRed3DS.3dsx FireRed3DS.smdh > SHA256SUMS.txt)
+          ours=$(python3 -c "import struct,sys; print('%08x' % struct.unpack('<I', open(sys.argv[1],'rb').read(4))[0])" \
+                 build/upstream/3ds_port/romfs/engine/abi.bin)
+          echo "ABI=$ours" >> "$GITHUB_ENV"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="single-screen-${GITHUB_SHA::7}"
+          cat > notes.md <<EOF
+          Pokémon FireRed 3DS with **SINGLE SCREEN** (OPTIONS > ENHANCEMENTS): the game's menus and START menu on the top screen, as on the GBA, for playing on one screen.
+
+          It needs a \`firered3ds.pak\` made for this build (data ABI $ABI): use this fork's Builder AppImage (a \`builder-…\` release) with your own ROM. Back up your save first.
+
+          Engine only: no game data and no ROM content. Unofficial build of commit ${GITHUB_SHA::7}, not from the Pokémon FireRed 3DS developer.
+          EOF
+          gh release create "$tag" ship/FireRed3DS.3dsx ship/FireRed3DS.smdh ship/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "Single screen (${GITHUB_SHA::7})" --notes-file notes.md
+          # The recipe inputs, encrypted (see "Encrypted recipe inputs"): a
+          # prerelease of their own, deleted once fetched.
+          gh release create "recipe-inputs-${GITHUB_SHA::7}" recipe-inputs.tar.xz.enc recipe-inputs.key.enc \
+            --target "$GITHUB_SHA" --prerelease --title "Recipe inputs ${GITHUB_SHA::7} (encrypted, temporary)" \
+            --notes "Encrypted build inputs for making this build's data pack recipe. Not for use; removed soon."

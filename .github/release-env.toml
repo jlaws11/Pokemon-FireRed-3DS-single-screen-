@@ -1,0 +1,12 @@
+# The pinned environment this fork's builds are made in (.github/release_env),
+# the same as the Emerald 3DS release environment: devkitARM by digest, and
+# the Python and Pillow the voxel data is made with. The builder AppImage
+# bundles the same Python and Pillow, so the voxel data it rebuilds from the
+# player's ROM matches the build's byte for byte.
+[python]
+image = "python:3.13.17-slim-bookworm"
+version = "3.13"
+pillow = "12.3.0"
+
+[devkitarm]
+image = "devkitpro/devkitarm@sha256:116afba8df8453961de2936ffab20dd441edf4d682856c1ec8b0e53d7ed0bbf5"

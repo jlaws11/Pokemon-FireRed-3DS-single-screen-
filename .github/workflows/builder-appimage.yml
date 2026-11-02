@@ -1,0 +1,145 @@
+name: Builder AppImage
+
+# The Pokémon FireRed 3DS Builder (builder/, the project's own) as a Linux
+# AppImage for the Steam Deck and other Linux PCs, with this fork's payload
+# inside: the single-screen release's FireRed3DS.3dsx, the recipe made for it
+# (.github/payload/firered3ds.recipe) and the voxel generators. Run on the
+# player's machine with their own ROM, offline, it makes the matching
+# firered3ds.pak (and downloads the optional follower sprites when online).
+# Built on an older Ubuntu so the AppImage runs on older systems too.
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/payload/**', '.github/workflows/builder-appimage.yml', 'builder/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: builder-appimage
+  cancel-in-progress: true
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    env:
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Python and Pillow the voxel data is made with (.github/release-env.toml):
+      # the builder runs the generators with its own interpreter, and their
+      # output is checked against the recipe's CRCs.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Python packages
+        run: |
+          PILLOW=$(python3 -c "import tomllib; print(tomllib.load(open('.github/release-env.toml','rb'))['python']['pillow'])")
+          python3 -m pip install "pillow==$PILLOW" pyinstaller
+          python3 -c "import sys, tkinter, PIL; print(sys.version, 'tk', tkinter.TkVersion, 'pillow', PIL.__version__)"
+
+      - name: Payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The release the recipe was made for, its executable's SHA-256 and
+          # data ABI (.github/payload/engine.toml, written with the recipe).
+          read ENGINE_RELEASE ENGINE_SHA256 ENGINE_ABI < <(python3 -c "
+          import tomllib; e = tomllib.load(open('.github/payload/engine.toml', 'rb'))
+          print(e['release'], e['sha256'], e['abi'])")
+          echo "ENGINE_RELEASE=$ENGINE_RELEASE" >> "$GITHUB_ENV"
+          mkdir -p payload
+          gh release download "$ENGINE_RELEASE" --pattern 'FireRed3DS.*' --dir payload
+          echo "$ENGINE_SHA256  payload/FireRed3DS.3dsx" | sha256sum -c -
+          cp .github/payload/firered3ds.recipe payload/
+          python3 - <<'EOF'
+          import shutil, sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import build_release as br
+          port, payload = Path("3ds_port"), Path("payload")
+          scripts, external = br.local_closure(port / "scripts", br.GENERATORS)
+          (payload / "voxelgen" / "scripts").mkdir(parents=True)
+          for name in scripts:
+              shutil.copy2(port / "scripts" / name, payload / "voxelgen" / "scripts" / name)
+          for rel in br.VOXELGEN_FILES:
+              dst = payload / "voxelgen" / rel
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(port / rel, dst)
+          Path("builder/build").mkdir(parents=True, exist_ok=True)
+          Path("builder/build/hidden-imports.txt").write_text("\n".join(sorted(external)) + "\n")
+          print("voxelgen scripts:", len(scripts), "external modules:", sorted(external))
+          EOF
+          # The recipe made for this executable: its ABI must be the executable's.
+          python3 -c "
+          import sys; sys.path.insert(0, 'builder')
+          from firered3ds_builder.recipe import Recipe
+          r = Recipe.load('payload/firered3ds.recipe')
+          print('recipe ABI %08x, release %s' % (r.engine_abi, r.release))
+          assert r.engine_abi == int('$ENGINE_ABI', 16), 'recipe ABI is not the release executable\'s'"
+
+      - name: Builder app (PyInstaller)
+        working-directory: builder
+        run: |
+          python3 -m PyInstaller --noconfirm --clean --distpath build/dist --workpath build/pyi firered3ds-builder.spec
+          ls build/dist/FireRed3DS-Builder
+
+      - name: AppImage
+        run: |
+          APP=AppDir/usr/lib/firered3ds-builder
+          mkdir -p "$APP"
+          cp -r builder/build/dist/FireRed3DS-Builder/. "$APP/"
+          cp -r payload "$APP/payload"
+          cp 3ds_port/assets/artwork/icon.png AppDir/firered3ds-builder.png
+          cat > AppDir/firered3ds-builder.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=FireRed 3DS Builder (single screen)
+          Comment=Make the FireRed 3DS data pack from your own Pokémon FireRed ROM
+          Exec=FireRed3DS-Builder
+          Icon=firered3ds-builder
+          Categories=Game;Utility;
+          Terminal=false
+          EOF
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          # The window without arguments; the command line with them (build,
+          # install, verify: see --help).
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/lib/firered3ds-builder/FireRed3DS-Builder" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          # The packaged app starts and finds its payload.
+          AppDir/AppRun --help
+          AppDir/AppRun verify --help >/dev/null
+          curl -fsSL -o appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool AppDir FireRed3DS-Builder-single-screen-x86_64.AppImage
+          ls -l *.AppImage
+          sha256sum FireRed3DS-Builder-single-screen-x86_64.AppImage > SHA256SUMS-builder.txt
+
+      - name: Audit
+        run: |
+          python3 -c "import zipfile; z=zipfile.ZipFile('payload.zip','w'); [z.write(p, p.as_posix()) for p in __import__('pathlib').Path('payload').rglob('*') if p.is_file()]"
+          python3 tools/release_audit.py --zip payload.zip --strict
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="builder-${GITHUB_SHA::7}"
+          cat > notes.md <<EOF
+          The Pokémon FireRed 3DS Builder for Linux and the Steam Deck, for the single-screen build ($ENGINE_RELEASE). It makes \`firered3ds.pak\` from **your own** Pokémon FireRed ROM (USA, Rev 1), offline, and writes it with the matching \`FireRed3DS.3dsx\`.
+
+          **Steam Deck (Desktop Mode):** download the AppImage, right-click it > Properties > Permissions > "Is executable" (or add it to Gear Lever), and open it. Choose your ROM, and as the SD card pick Azahar's \`sdmc\` folder: it writes \`3ds/firered3ds/\` there. Back up your save first.
+
+          Online, it also downloads the optional follower sprites. Command line: \`./FireRed3DS-Builder-single-screen-x86_64.AppImage build --rom rom.gba --output folder\`.
+
+          Contains no game data and no ROM content. Unofficial build of the project's builder, not from the Pokémon FireRed 3DS developer.
+          EOF
+          gh release create "$tag" FireRed3DS-Builder-single-screen-x86_64.AppImage SHA256SUMS-builder.txt \
+            --target "$GITHUB_SHA" --title "Builder AppImage (single screen, ${GITHUB_SHA::7})" --notes-file notes.md
