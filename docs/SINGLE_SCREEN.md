@@ -23,12 +23,14 @@ OFF/ON, default OFF). `CtrSingleScreen()` in `3ds_port/src/fr_bottom_ui.c` reads
   `PlayerHandleChooseAction` draws the action menu and `gBattle_BG0_Y` stays where the GBA has it (160 for
   the actions, 320 for the moves), in the player's controller and the first battle's (Oak/old man). The
   bottom screen's battle buttons still work.
-- **The bottom screen on top.** It is touch only, so in single screen X shows it on the top screen:
-  `PanelOnTopInput` (`fr_bottom_ui.c`) moves a pointer with the D-pad or the circle pad and turns A into a
-  touch where it points (`ReadTouch`); B or X closes it, and the game gets no keys while it is up
-  (`CtrBottom_FilterKeys`). Only in the field; a menu it opens (POKeMON, BAG...) leaves the field and so
-  closes it. `3ds_soft_video.c` draws the canvas (`CtrBottom_PanelOnTop`) over the dimmed game with the
-  pointer.
+- **The bottom screen on top.** It is touch only, so in single screen X shows it on the top screen with
+  button controls (`PanelOnTopInput`, `fr_bottom_ui.c`). Its targets are found by asking `HitTest` over the
+  screen (`ScanTargets`, again after every press and every few frames), so every page's own buttons,
+  party, option tabs and rows; the D-pad steps a highlight to the nearest one in its direction, A touches
+  its middle (held while A is), and on an option row Left and Right touch its two halves (a value down or
+  up). B or X closes it, and the game gets no keys while it is up (`CtrBottom_FilterKeys`). Only in the
+  field; a menu it opens (POKeMON, BAG...) leaves the field and so closes it. `3ds_soft_video.c` draws the
+  canvas (`CtrBottom_PanelOnTop`) over the dimmed game with the highlight framed.
 
 ## Builds
 

@@ -1708,68 +1708,218 @@ bool CtrBottom_TakesGameFrame(void)
 
 /*
  * SINGLE SCREEN: this screen on the top one. X in the field shows it there
- * (3ds_soft_video.c draws it, CtrBottom_PanelOnTop) with a pointer for its
- * touch controls: the D-pad or the circle pad moves it, A touches where it
- * points, B or X puts it away. The game sees no keys meanwhile (FilterKeys),
- * nor the B or X that closed it until they are let go. A menu opened from
- * it (POKeMON, BAG...) leaves the field, and so closes it.
+ * (3ds_soft_video.c draws it, CtrBottom_PanelOnTop), and the D-pad steps a
+ * highlight between what can be touched on it - found by asking HitTest over
+ * the screen, so every page's own targets: the buttons, the party, the
+ * options' tabs and rows. A touches the highlighted one (a touch at its
+ * middle, held while A is); on an option row Left and Right change the
+ * value, as the touches on its two halves do; B or X puts the screen away.
+ * The game sees no keys meanwhile (FilterKeys), nor the B or X that closed it
+ * until they are let go. A menu opened from it (POKeMON, BAG...) leaves the
+ * field, and so closes it.
  */
-#define POINTER_STEP 3
+#define SCAN_STEP 4
+#define RESCAN_FRAMES 10
+#define TAP_FRAMES 3
+static u8 HitTest(int x, int y);
 static bool sPanelOnTop, sPanelSwallow;
-static int sPointerX = W / 2, sPointerY = H / 2;
+/* each hit's box on the screen as last scanned; x1 < x0 when not there */
+static struct { s16 x0, y0, x1, y1; } sHitBox[HIT_COUNT];
+static u8 sFocus = HIT_NONE;
+static u8 sRescan;
+/* a touch made for the player: held while A is (sTapHeld), or for a few
+ * frames (an option row's Left or Right) */
+static int sTapX, sTapY, sTapFrames;
+static bool sTapHeld;
+
+static bool IsRowBack(u8 hit) { return hit >= HIT_ROW_BACK && hit < HIT_ROW_BACK + OPT_PAGE_ROWS; }
+static bool IsRow(u8 hit) { return hit >= HIT_ROW && hit < HIT_ROW + OPT_PAGE_ROWS; }
+static bool HitThere(u8 hit) { return hit != HIT_NONE && hit < HIT_COUNT && sHitBox[hit].x1 >= sHitBox[hit].x0; }
+
+/* The box a target is highlighted with: an option row's both halves. */
+static void FocusBox(u8 hit, int *x0, int *y0, int *x1, int *y1)
+{
+    *x0 = sHitBox[hit].x0; *y0 = sHitBox[hit].y0; *x1 = sHitBox[hit].x1; *y1 = sHitBox[hit].y1;
+    if (IsRow(hit) && HitThere(hit - HIT_ROW + HIT_ROW_BACK))
+    {
+        u8 back = hit - HIT_ROW + HIT_ROW_BACK;
+
+        *x0 = *x0 < sHitBox[back].x0 ? *x0 : sHitBox[back].x0;
+        *y0 = *y0 < sHitBox[back].y0 ? *y0 : sHitBox[back].y0;
+        *x1 = *x1 > sHitBox[back].x1 ? *x1 : sHitBox[back].x1;
+        *y1 = *y1 > sHitBox[back].y1 ? *y1 : sHitBox[back].y1;
+    }
+}
+
+static void FocusCentre(u8 hit, int *x, int *y)
+{
+    int x0, y0, x1, y1;
+
+    FocusBox(hit, &x0, &y0, &x1, &y1);
+    *x = (x0 + x1) / 2;
+    *y = (y0 + y1) / 2;
+}
+
+/* The focusable target nearest (x, y) in direction (dx, dy), or with no
+ * direction nearest at all; HIT_NONE if there is none. */
+static u8 NearestTarget(int x, int y, int dx, int dy, u8 skip)
+{
+    u8 best = HIT_NONE;
+    int bestScore = 0x7FFFFFFF;
+
+    for (u8 h = HIT_NONE + 1; h < HIT_COUNT; h++)
+    {
+        int cx, cy, along, across, score;
+
+        if (h == skip || !HitThere(h) || IsRowBack(h))
+            continue;
+        FocusCentre(h, &cx, &cy);
+        along = dx ? (cx - x) * dx : dy ? (cy - y) * dy : 0;
+        across = dx ? cy - y : dy ? cx - x : 0;
+        if (across < 0)
+            across = -across;
+        if ((dx || dy) && along <= 2)
+            continue;
+        score = dx || dy ? along + 2 * across : (cx - x) * (cx - x) + (cy - y) * (cy - y);
+        if (score < bestScore)
+        {
+            bestScore = score;
+            best = h;
+        }
+    }
+    return best;
+}
+
+static void ScanTargets(void)
+{
+    int fx = W / 2, fy = H / 2;
+    bool hadFocus = HitThere(sFocus);
+
+    if (hadFocus)
+        FocusCentre(sFocus, &fx, &fy);
+    for (unsigned h = 0; h < HIT_COUNT; h++)
+    {
+        sHitBox[h].x0 = sHitBox[h].y0 = 0x7FFF;
+        sHitBox[h].x1 = sHitBox[h].y1 = -1;
+    }
+    for (int y = SCAN_STEP / 2; y < H; y += SCAN_STEP)
+        for (int x = SCAN_STEP / 2; x < W; x += SCAN_STEP)
+        {
+            u8 h = HitTest(x, y);
+
+            if (h == HIT_NONE || h >= HIT_COUNT)
+                continue;
+            if (x < sHitBox[h].x0) sHitBox[h].x0 = x;
+            if (y < sHitBox[h].y0) sHitBox[h].y0 = y;
+            if (x > sHitBox[h].x1) sHitBox[h].x1 = x;
+            if (y > sHitBox[h].y1) sHitBox[h].y1 = y;
+        }
+    /* the samples are SCAN_STEP apart: the boxes out to the edges between */
+    for (unsigned h = 0; h < HIT_COUNT; h++)
+        if (sHitBox[h].x1 >= sHitBox[h].x0)
+        {
+            sHitBox[h].x0 -= SCAN_STEP / 2; sHitBox[h].y0 -= SCAN_STEP / 2;
+            sHitBox[h].x1 += SCAN_STEP / 2 - 1; sHitBox[h].y1 += SCAN_STEP / 2 - 1;
+        }
+    if (!HitThere(sFocus) || IsRowBack(sFocus))
+        sFocus = HitThere(HIT_BUTTON) && !hadFocus ? HIT_BUTTON : NearestTarget(fx, fy, 0, 0, HIT_NONE);
+    sRescan = RESCAN_FRAMES;
+}
+
+static void Tap(u8 hit, bool held)
+{
+    if (!HitThere(hit))
+        return;
+    sTapX = (sHitBox[hit].x0 + sHitBox[hit].x1) / 2;
+    sTapY = (sHitBox[hit].y0 + sHitBox[hit].y1) / 2;
+    sTapHeld = held;
+    sTapFrames = held ? 0 : TAP_FRAMES;
+}
 
 static void PanelOnTopInput(void)
 {
     const CtrInput *in = CtrInput_Get();
     bool allowed = CtrSingleScreen() && sInGame && InField();
+    u16 down = in->physicalDown;
 
+    /* a touch ends: what it did (a new page) is seen from the frame after */
+    if (sTapFrames && --sTapFrames == 0)
+        sRescan = 2;
+    if (sTapHeld && !(in->physicalHeld & CTR_KEY_A))
+    {
+        sTapHeld = false;
+        sRescan = 2;
+    }
     if (!sPanelOnTop)
     {
-        if (allowed && (in->physicalDown & CTR_KEY_X))
+        if (allowed && (down & CTR_KEY_X))
         {
             sPanelOnTop = true;
             sPanelSwallow = false;
+            sTapHeld = false;
+            sTapFrames = 0;
+            sFocus = HIT_NONE;
+            ScanTargets();
             PlaySE(SE_SELECT);
             CtrLog_Write(CTR_LOG_INPUT, "bottom: shown on top at frame %lu", (unsigned long)CtrGame_Frames());
         }
         return;
     }
-    if (!allowed || (in->physicalDown & (CTR_KEY_X | CTR_KEY_B)))
+    if (!allowed || (down & (CTR_KEY_X | CTR_KEY_B)))
     {
         sPanelOnTop = false;
         sPanelSwallow = true;
+        sTapHeld = false;
+        sTapFrames = 0;
         if (allowed)
             PlaySE(SE_SELECT);
         return;
     }
+    if (sRescan && --sRescan == 0)
+        ScanTargets();
+    if (sTapHeld || sTapFrames)
+        return;
+    if (down & CTR_KEY_A)
     {
-        int dx = 0, dy = 0, cx = in->circleX, cy = in->circleY;
+        Tap(sFocus, true);
+        return;
+    }
+    /* an option row: Left and Right are its two halves' touches */
+    if (IsRow(sFocus) && (down & (CTR_KEY_LEFT | CTR_KEY_RIGHT)))
+    {
+        Tap((down & CTR_KEY_LEFT) && HitThere(sFocus - HIT_ROW + HIT_ROW_BACK) ? sFocus - HIT_ROW + HIT_ROW_BACK : sFocus,
+            false);
+        return;
+    }
+    {
+        int dx = (down & CTR_KEY_RIGHT) ? 1 : (down & CTR_KEY_LEFT) ? -1 : 0;
+        int dy = dx ? 0 : (down & CTR_KEY_DOWN) ? 1 : (down & CTR_KEY_UP) ? -1 : 0;
 
-        if (in->physicalHeld & CTR_KEY_LEFT)
-            dx -= POINTER_STEP;
-        if (in->physicalHeld & CTR_KEY_RIGHT)
-            dx += POINTER_STEP;
-        if (in->physicalHeld & CTR_KEY_UP)
-            dy -= POINTER_STEP;
-        if (in->physicalHeld & CTR_KEY_DOWN)
-            dy += POINTER_STEP;
-        /* the circle pad: faster the further it leans, +y up */
-        if (cx * cx + cy * cy >= CTR_CIRCLE_LEAVE * CTR_CIRCLE_LEAVE)
+        if (dx || dy)
         {
-            dx += cx / 24;
-            dy -= cy / 24;
+            int x = W / 2, y = H / 2;
+            u8 next;
+
+            if (HitThere(sFocus))
+                FocusCentre(sFocus, &x, &y);
+            next = NearestTarget(x, y, dx, dy, sFocus);
+            if (next != HIT_NONE)
+            {
+                sFocus = next;
+                PlaySE(SE_SELECT);
+            }
         }
-        sPointerX = sPointerX + dx < 0 ? 0 : sPointerX + dx >= W ? W - 1 : sPointerX + dx;
-        sPointerY = sPointerY + dy < 0 ? 0 : sPointerY + dy >= H ? H - 1 : sPointerY + dy;
     }
 }
 
-const uint16_t *CtrBottom_PanelOnTop(int *pointerX, int *pointerY)
+const uint16_t *CtrBottom_PanelOnTop(int *x0, int *y0, int *x1, int *y1)
 {
     if (!sPanelOnTop)
         return NULL;
-    *pointerX = sPointerX;
-    *pointerY = sPointerY;
+    if (HitThere(sFocus))
+        FocusBox(sFocus, x0, y0, x1, y1);
+    else
+        *x0 = *y0 = 0, *x1 = *y1 = -1;
     return sCanvas;
 }
 
@@ -1936,12 +2086,12 @@ static bool ReadTouch(u16 *x, u16 *y)
 
     *x = in->touchX;
     *y = in->touchY;
-    /* shown on the top screen: A touches where the pointer is */
-    if (sPanelOnTop && !in->touchActive)
+    /* shown on the top screen: the touch made for the highlighted target */
+    if (sPanelOnTop && !in->touchActive && (sTapHeld || sTapFrames))
     {
-        *x = (u16)sPointerX;
-        *y = (u16)sPointerY;
-        return (in->physicalHeld & CTR_KEY_A) != 0;
+        *x = (u16)sTapX;
+        *y = (u16)sTapY;
+        return true;
     }
 #ifdef CTR_INPUT_SCRIPT
     if (CtrScript_Touch(x, y))

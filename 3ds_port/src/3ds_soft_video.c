@@ -277,7 +277,7 @@ static void GpuUploadUi(void)
 
 /*
  * SINGLE SCREEN: the bottom screen shown on the top one (X;
- * CtrBottom_PanelOnTop), over the game dimmed, with its pointer. The canvas
+ * CtrBottom_PanelOnTop), over the game dimmed, its highlighted target framed. The canvas
  * is laid out as the bottom framebuffer (column-major, bottom to top): turned
  * upright into a linear buffer and tiled into a texture as the frame is.
  * Its memory is taken the first time it is shown.
@@ -321,18 +321,28 @@ static bool PanelUpload(const uint16_t *canvas)
     return true;
 }
 
-static void PanelDraw(int pointerX, int pointerY)
+static void PanelDraw(int x0, int y0, int x1, int y1)
 {
     C2D_Image panel = { &sPanelTex, &sPanelSub };
-    float x0 = (TOP_WIDTH - CTR_BOTTOM_WIDTH) / 2.0f;
-    float px = x0 + pointerX, py = (float)pointerY;
-    u32 black = C2D_Color32(0, 0, 0, 255), white = C2D_Color32(255, 255, 255, 255);
+    float ox = (TOP_WIDTH - CTR_BOTTOM_WIDTH) / 2.0f;
 
     C2D_DrawRectSolid(0.0f, 0.0f, 0.6f, TOP_WIDTH, TOP_HEIGHT, C2D_Color32(0, 0, 0, 160));
-    C2D_DrawImageAt(panel, x0, 0.0f, 0.7f, NULL, 1.0f, 1.0f);
-    /* an arrow, its tip where A touches */
-    C2D_DrawTriangle(px, py, black, px, py + 16.0f, black, px + 11.0f, py + 11.0f, black, 0.8f);
-    C2D_DrawTriangle(px + 1.5f, py + 3.5f, white, px + 1.5f, py + 12.5f, white, px + 8.0f, py + 9.5f, white, 0.9f);
+    C2D_DrawImageAt(panel, ox, 0.0f, 0.7f, NULL, 1.0f, 1.0f);
+    /* the highlighted target: a yellow frame, dark-edged to show on any colour */
+    if (x1 >= x0)
+    {
+        float l = ox + x0 - 2.0f, t = y0 - 2.0f, w = x1 - x0 + 5.0f, h = y1 - y0 + 5.0f;
+        u32 dark = C2D_Color32(40, 24, 0, 255), gold = C2D_Color32(255, 214, 40, 255);
+
+        C2D_DrawRectSolid(l - 1.0f, t - 1.0f, 0.8f, w + 2.0f, 5.0f, dark);
+        C2D_DrawRectSolid(l - 1.0f, t + h - 4.0f, 0.8f, w + 2.0f, 5.0f, dark);
+        C2D_DrawRectSolid(l - 1.0f, t - 1.0f, 0.8f, 5.0f, h + 2.0f, dark);
+        C2D_DrawRectSolid(l + w - 4.0f, t - 1.0f, 0.8f, 5.0f, h + 2.0f, dark);
+        C2D_DrawRectSolid(l, t, 0.9f, w, 3.0f, gold);
+        C2D_DrawRectSolid(l, t + h - 3.0f, 0.9f, w, 3.0f, gold);
+        C2D_DrawRectSolid(l, t, 0.9f, 3.0f, h, gold);
+        C2D_DrawRectSolid(l + w - 3.0f, t, 0.9f, 3.0f, h, gold);
+    }
 }
 
 #if CTR_VOXEL_ENABLED
@@ -469,8 +479,8 @@ static void GpuPresent(void)
         warming = true;     /* no picture this frame: black under the UI */
     if (voxel || warming)
         GpuUploadUi();
-    int pointerX = 0, pointerY = 0;
-    const uint16_t *panel = CtrBottom_PanelOnTop(&pointerX, &pointerY);
+    int focusX0 = 0, focusY0 = 0, focusX1 = -1, focusY1 = -1;
+    const uint16_t *panel = CtrBottom_PanelOnTop(&focusX0, &focusY0, &focusX1, &focusY1);
     bool showPanel = panel != NULL && PanelUpload(panel);
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
@@ -578,7 +588,7 @@ static void GpuPresent(void)
         C2D_DrawImageAt(image, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
     }
     if (showPanel)
-        PanelDraw(pointerX, pointerY);
+        PanelDraw(focusX0, focusY0, focusX1, focusY1);
     C3D_FrameEnd(0);
     /* the 2D picture went unseen: the game side needs not draw the next */
     sDrewVoxel = voxel || warmingUp;

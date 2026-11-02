@@ -40,8 +40,9 @@ bool CtrBottom_TakesGameFrame(void);
 bool CtrBottom_MenuShown(void);
 void CtrBottom_ShowGameFrame(const uint16_t *frame);
 /* SINGLE SCREEN: this screen's canvas while it is shown on the top screen
- * (X), and where its pointer is; NULL when it is not. */
-const uint16_t *CtrBottom_PanelOnTop(int *pointerX, int *pointerY);
+ * (X), and the box of the target highlighted on it (x1 < x0 for none); NULL
+ * when it is not shown. */
+const uint16_t *CtrBottom_PanelOnTop(int *x0, int *y0, int *x1, int *y1);
 
 /*
  * The light green the bottom screen's sections sit on (its own screens, and

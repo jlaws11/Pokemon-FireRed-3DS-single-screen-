@@ -14,9 +14,9 @@ A **SINGLE SCREEN** option (OPTIONS → ENHANCE, the first row; off until you tu
   the bottom one.
 - **Battles are as on the GBA:** FIGHT / BAG / POKéMON / RUN and the moves are in the battle's text box on
   the top screen.
-- **X shows the bottom screen on the top one**, for this port's own OPTIONS (ENHANCE, CHEATS), the region map
-  and the quick buttons: move the pointer with the D-pad or the circle pad, press **A** to touch, **B** or
-  **X** to put it away.
+- **X shows the bottom screen on the top one**, for this port's own OPTIONS (ENHANCE, CHEATS) and the quick
+  buttons: the **D-pad** moves the highlight between buttons, **A** presses, **Left/Right** change an option,
+  **B** or **X** put it away.
 - **Everything works with buttons**, so you never need the touch screen and can keep your emulator on a
   single-screen layout.
 
@@ -97,7 +97,7 @@ Changes to docs or this README do not rebuild the game.
 
 - **Being tested** on a Steam Deck (Azahar, single-screen layout). The first test found the battle menus
   still on the bottom screen and this port's own OPTIONS out of reach; both are fixed in the current build
-  (GBA battle menus on top; X for the bottom screen). If something looks wrong, open an issue on this fork
+  (GBA battle menus on top; X for the bottom screen, with D-pad navigation). If something looks wrong, open an issue on this fork
   with a screenshot.
 - Made for emulators. It should also run on a real 3DS, but that is untested.
 - English (USA/Europe, Rev 1) FireRed only, like the official release.
