@@ -30,7 +30,7 @@ FireRed 3DS is two files in `/3ds/firered3ds/`:
 | `FireRed3DS.3dsx` | The game engine, with single screen built in. No Pokémon content in it. | Built from this fork's code by GitHub. |
 | `firered3ds.pak` | The game data: graphics, maps, text, music, the 3D world. | Made on **your** machine from **your own** Pokémon FireRed ROM. |
 
-The **Builder AppImage** on this fork's
+The **installer** (an AppImage) on this fork's
 [Releases](https://github.com/jlaws11/Pokemon-FireRed-3DS-single-screen-/releases) carries the engine and
 makes the data pack from your ROM, then writes both files. It does not turn other GBA games into 3DS games:
 FireRed 3DS is a rebuild of Pokémon FireRed alone.
@@ -44,8 +44,8 @@ You need **Azahar** (the 3DS emulator; on the Deck from EmuDeck or the Discover 
 **Pokémon FireRed (USA/Europe, Rev 1)** ROM, dumped from your cartridge
 (SHA-1 `dd5945db9b930750cb39d00c84da8571feebf417`). Other versions and ROM hacks are refused.
 
-1. In Desktop Mode, download **FireRed3DS-Builder-single-screen-x86_64.AppImage** from the newest
-   `builder-…` release on the [Releases](https://github.com/jlaws11/Pokemon-FireRed-3DS-single-screen-/releases)
+1. In Desktop Mode, download **FireRed-3DS-Single-Screen-Installer.AppImage** from the
+   **Steam Deck & Linux installer** release (at the top, marked Latest) on the [Releases](https://github.com/jlaws11/Pokemon-FireRed-3DS-single-screen-/releases)
    page.
 2. If you already play FireRed 3DS, back up `firered3ds.sav` from Azahar's `sdmc/3ds/firered3ds/` folder first.
 3. Right-click the AppImage → Properties → Permissions → tick **Is executable** (or add it to Gear Lever),
@@ -59,7 +59,7 @@ You need **Azahar** (the 3DS emulator; on the Deck from EmuDeck or the Discover 
    Azahar to Steam (Games → Add a Non-Steam Game). Optionally, put Azahar's **Swap Screens** hotkey on a
    back button for when you want the bottom screen (the region map or this port's OPTIONS).
 
-From the command line: `./FireRed3DS-Builder-single-screen-x86_64.AppImage build --rom firered.gba --output folder`,
+From the command line: `./FireRed-3DS-Single-Screen-Installer.AppImage build --rom firered.gba --output folder`,
 then copy `folder/3ds` to the SD card (Azahar's `sdmc`).
 
 ## Sharing it
@@ -84,7 +84,9 @@ GitHub. Then:
    (`tools/release_audit.py --strict --rom`), and committed as `.github/payload/firered3ds.recipe` with
    `.github/payload/engine.toml` (which release and data ABI it is for). The build's data reaches that step
    only encrypted to `.github/pack-inputs.pub.pem`.
-3. That commit builds a new **Builder AppImage** with the new engine and recipe.
+3. That commit builds a new **installer** AppImage with the new engine and recipe, published as the
+   `steam-deck-installer-…` release (marked Latest; older installers are removed). The
+   `single-screen-…` release is the executable alone, for developers.
 
 Changes to docs or this README do not rebuild the game.
 

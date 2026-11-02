@@ -114,12 +114,12 @@ jobs:
           cat > notes.md <<EOF
           Pokémon FireRed 3DS with **SINGLE SCREEN** (OPTIONS > ENHANCEMENTS): the game's menus and START menu on the top screen, as on the GBA, for playing on one screen.
 
-          It needs a \`firered3ds.pak\` made for this build (data ABI $ABI): use this fork's Builder AppImage (a \`builder-…\` release) with your own ROM. Back up your save first.
+          It needs a \`firered3ds.pak\` made for this build (data ABI $ABI): use this fork's installer (the \`steam-deck-installer-…\` release) with your own ROM. Back up your save first.
 
           Engine only: no game data and no ROM content. Unofficial build of commit ${GITHUB_SHA::7}, not from the Pokémon FireRed 3DS developer.
           EOF
           gh release create "$tag" ship/FireRed3DS.3dsx ship/FireRed3DS.smdh ship/SHA256SUMS.txt \
-            --target "$GITHUB_SHA" --title "Single screen (${GITHUB_SHA::7})" --notes-file notes.md
+            --target "$GITHUB_SHA" --title "Game engine only, for developers (${GITHUB_SHA::7})" --notes-file notes.md --latest=false
           # The recipe inputs, encrypted (see "Encrypted recipe inputs"): a
           # prerelease of their own, deleted once fetched.
           gh release create "recipe-inputs-${GITHUB_SHA::7}" recipe-inputs.tar.xz.enc recipe-inputs.key.enc \
