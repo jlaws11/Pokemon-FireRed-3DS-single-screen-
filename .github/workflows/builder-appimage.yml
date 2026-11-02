@@ -125,7 +125,7 @@ jobs:
 
       - name: Audit
         run: |
-          python3 -c "import zipfile; z=zipfile.ZipFile('payload.zip','w'); [z.write(p, p.as_posix()) for p in __import__('pathlib').Path('payload').rglob('*') if p.is_file()]"
+          python3 -c "import zipfile; z=zipfile.ZipFile('payload.zip','w'); [z.write(p, 'FireRed3DS-vsingle-screen-Windows/' + p.as_posix()) for p in __import__('pathlib').Path('payload').rglob('*') if p.is_file()]"
           python3 tools/release_audit.py --zip payload.zip --strict
 
       - name: Publish

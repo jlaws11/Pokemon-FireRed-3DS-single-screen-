@@ -97,7 +97,9 @@ jobs:
         run: |
           mkdir -p ship
           cp build/upstream/3ds_port/dist/FireRed3DS.3dsx build/upstream/3ds_port/dist/FireRed3DS.smdh ship/
-          python3 -c "import zipfile,pathlib; z=zipfile.ZipFile('ship.zip','w'); [z.write(p, 'payload/' + p.name) for p in pathlib.Path('ship').iterdir()]"
+          # Laid out as an official release ZIP (FireRed3DS-v*-Windows/payload/),
+          # where the audit's allowlist expects the executable.
+          python3 -c "import zipfile,pathlib; z=zipfile.ZipFile('ship.zip','w'); [z.write(p, 'FireRed3DS-vsingle-screen-Windows/payload/' + p.name) for p in pathlib.Path('ship').iterdir()]"
           python3 tools/release_audit.py --zip ship.zip --strict
           (cd ship && sha256sum FireRed3DS.3dsx FireRed3DS.smdh > SHA256SUMS.txt)
           ours=$(python3 -c "import struct,sys; print('%08x' % struct.unpack('<I', open(sys.argv[1],'rb').read(4))[0])" \
