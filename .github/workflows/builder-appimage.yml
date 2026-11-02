@@ -11,7 +11,9 @@ name: Builder AppImage
 on:
   push:
     branches: [main]
-    paths: ['.github/payload/**', '.github/workflows/builder-appimage.yml', 'builder/**']
+    # A new recipe (with the engine it was made for) or a builder change:
+    # not this file alone, which has nothing to build until a recipe exists.
+    paths: ['.github/payload/**', 'builder/**']
 
 permissions:
   contents: write
@@ -24,7 +26,6 @@ jobs:
   appimage:
     runs-on: ubuntu-22.04
     timeout-minutes: 40
-    env:
     steps:
       - uses: actions/checkout@v4
 
