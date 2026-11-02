@@ -7,16 +7,18 @@
 
 ## What this fork adds
 
-A **SINGLE SCREEN** option (OPTIONS → ENHANCEMENTS, the first row; off until you turn it on):
+A **SINGLE SCREEN** option (OPTIONS → ENHANCE, the first row; off until you turn it on):
 
-- **The game's menus stay on the top screen, as on the GBA.** The START menu (Pokédex, Pokémon, bag,
-  save, option...), the party, bag, shops, PC boxes and summaries open on the top screen instead of moving
-  to the bottom one.
-- **Battles are as on the GBA:** FIGHT / BAG / POKéMON / RUN and the moves are in the battle's own text box
-  on the top screen.
+- **START opens the game's own menu on the top screen, as on the GBA** (Pokédex, Pokémon, bag, save,
+  option...), and the party, bag, shops, PC boxes and summaries open on the top screen instead of moving to
+  the bottom one.
+- **Battles are as on the GBA:** FIGHT / BAG / POKéMON / RUN and the moves are in the battle's text box on
+  the top screen.
+- **X shows the bottom screen on the top one**, for this port's own OPTIONS (ENHANCE, CHEATS), the region map
+  and the quick buttons: move the pointer with the D-pad or the circle pad, press **A** to touch, **B** or
+  **X** to put it away.
 - **Everything works with buttons**, so you never need the touch screen and can keep your emulator on a
-  single-screen layout. The bottom screen still works when you want it: the region map, quick keys and this
-  port's own OPTIONS live there.
+  single-screen layout.
 
 Based on the official code as of 2 November 2026 (commit `f10061c`). Details for developers:
 [docs/SINGLE_SCREEN.md](docs/SINGLE_SCREEN.md).
@@ -54,10 +56,11 @@ You need **Azahar** (the 3DS emulator; on the Deck from EmuDeck or the Discover 
    SD card, which is fine. Press **Install** and wait about 10–15 minutes while it builds the 3D world's data.
    It works offline; online, it also fetches the optional follower Pokémon sprites.
 5. In Azahar, open `sdmc/3ds/firered3ds/FireRed3DS.3dsx` with its normal two-screen layout. On the bottom
-   screen, turn on **OPTIONS → ENHANCEMENTS → SINGLE SCREEN**.
+   screen, turn on **OPTIONS → ENHANCE → SINGLE SCREEN** (if START does not open the menu straight away,
+   restart the game once).
 6. Switch Azahar to the **Single Screen** layout (View → Screen Layout). To play from Gaming Mode, add
-   Azahar to Steam (Games → Add a Non-Steam Game). Optionally, put Azahar's **Swap Screens** hotkey on a
-   back button for when you want the bottom screen (the region map or this port's OPTIONS).
+   Azahar to Steam (Games → Add a Non-Steam Game). In the field, **START** opens the menu and **X** shows
+   the bottom screen (this port's OPTIONS, the region map).
 
 From the command line: `./FireRed-3DS-Single-Screen-Installer.AppImage build --rom firered.gba --output folder`,
 then copy `folder/3ds` to the SD card (Azahar's `sdmc`).
@@ -92,8 +95,10 @@ Changes to docs or this README do not rebuild the game.
 
 ## Status and limits
 
-- **Not yet tested in play.** It builds and the AppImage's pack matches the engine. If something looks
-  wrong in a menu or a battle, open an issue on this fork with a screenshot.
+- **Being tested** on a Steam Deck (Azahar, single-screen layout). The first test found the battle menus
+  still on the bottom screen and this port's own OPTIONS out of reach; both are fixed in the current build
+  (GBA battle menus on top; X for the bottom screen). If something looks wrong, open an issue on this fork
+  with a screenshot.
 - Made for emulators. It should also run on a real 3DS, but that is untested.
 - English (USA/Europe, Rev 1) FireRed only, like the official release.
 - If the official FireRed 3DS changes after the commit above, this fork does not have it until it is

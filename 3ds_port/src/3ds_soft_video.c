@@ -20,6 +20,7 @@
 #endif
 #include <string.h>
 
+#include "3ds_bottom.h"
 #include "3ds_log.h"
 #include "3ds_platform.h"
 #include "3ds_softvideo.h"
@@ -274,6 +275,66 @@ static void GpuUploadUi(void)
                             (u32 *)sUiTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), UI_TRANSFER_FLAGS);
 }
 
+/*
+ * SINGLE SCREEN: the bottom screen shown on the top one (X;
+ * CtrBottom_PanelOnTop), over the game dimmed, with its pointer. The canvas
+ * is laid out as the bottom framebuffer (column-major, bottom to top): turned
+ * upright into a linear buffer and tiled into a texture as the frame is.
+ * Its memory is taken the first time it is shown.
+ */
+#define PANEL_TEX_W 512
+#define PANEL_TEX_H 256
+static C3D_Tex sPanelTex;
+static uint16_t *sPanelLinear;
+static bool sPanelTried, sPanelReady;
+static const Tex3DS_SubTexture sPanelSub = { CTR_BOTTOM_WIDTH, CTR_BOTTOM_HEIGHT, 0.0f, 1.0f,
+                                             CTR_BOTTOM_WIDTH / (float)PANEL_TEX_W,
+                                             1.0f - CTR_BOTTOM_HEIGHT / (float)PANEL_TEX_H };
+
+static bool PanelUpload(const uint16_t *canvas)
+{
+    if (!sPanelTried)
+    {
+        sPanelTried = true;
+        sPanelLinear = linearAlloc(PANEL_TEX_W * PANEL_TEX_H * sizeof(uint16_t));
+        sPanelReady = sPanelLinear != NULL && C3D_TexInit(&sPanelTex, PANEL_TEX_W, PANEL_TEX_H, GPU_RGB565);
+        if (sPanelReady)
+        {
+            memset(sPanelLinear, 0, PANEL_TEX_W * PANEL_TEX_H * sizeof(uint16_t));
+            C3D_TexSetFilter(&sPanelTex, GPU_NEAREST, GPU_NEAREST);
+        }
+        CtrLog_Write(CTR_LOG_VIDEO, "bottom screen on top %s", sPanelReady ? "ready" : "unavailable");
+    }
+    if (!sPanelReady)
+        return false;
+    for (unsigned y = 0; y < CTR_BOTTOM_HEIGHT; ++y)
+    {
+        uint16_t *row = sPanelLinear + y * PANEL_TEX_W;
+        const uint16_t *src = canvas + (CTR_BOTTOM_HEIGHT - 1 - y);
+
+        for (unsigned x = 0; x < CTR_BOTTOM_WIDTH; ++x)
+            row[x] = src[x * CTR_BOTTOM_HEIGHT];
+    }
+    GSPGPU_FlushDataCache(sPanelLinear, PANEL_TEX_W * CTR_BOTTOM_HEIGHT * sizeof(uint16_t));
+    C3D_SyncDisplayTransfer((u32 *)sPanelLinear, GX_BUFFER_DIM(PANEL_TEX_W, PANEL_TEX_H),
+                            (u32 *)sPanelTex.data, GX_BUFFER_DIM(PANEL_TEX_W, PANEL_TEX_H), TILE_TRANSFER_FLAGS);
+    return true;
+}
+
+static void PanelDraw(int pointerX, int pointerY)
+{
+    C2D_Image panel = { &sPanelTex, &sPanelSub };
+    float x0 = (TOP_WIDTH - CTR_BOTTOM_WIDTH) / 2.0f;
+    float px = x0 + pointerX, py = (float)pointerY;
+    u32 black = C2D_Color32(0, 0, 0, 255), white = C2D_Color32(255, 255, 255, 255);
+
+    C2D_DrawRectSolid(0.0f, 0.0f, 0.6f, TOP_WIDTH, TOP_HEIGHT, C2D_Color32(0, 0, 0, 160));
+    C2D_DrawImageAt(panel, x0, 0.0f, 0.7f, NULL, 1.0f, 1.0f);
+    /* an arrow, its tip where A touches */
+    C2D_DrawTriangle(px, py, black, px, py + 16.0f, black, px + 11.0f, py + 11.0f, black, 0.8f);
+    C2D_DrawTriangle(px + 1.5f, py + 3.5f, white, px + 1.5f, py + 12.5f, white, px + 8.0f, py + 9.5f, white, 0.9f);
+}
+
 #if CTR_VOXEL_ENABLED
 /*
  * The 3D battle's shadows under the battlers (VoxelBattle_Shadows): an
@@ -408,6 +469,9 @@ static void GpuPresent(void)
         warming = true;     /* no picture this frame: black under the UI */
     if (voxel || warming)
         GpuUploadUi();
+    int pointerX = 0, pointerY = 0;
+    const uint16_t *panel = CtrBottom_PanelOnTop(&pointerX, &pointerY);
+    bool showPanel = panel != NULL && PanelUpload(panel);
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -513,6 +577,8 @@ static void GpuPresent(void)
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(image, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
     }
+    if (showPanel)
+        PanelDraw(pointerX, pointerY);
     C3D_FrameEnd(0);
     /* the 2D picture went unseen: the game side needs not draw the next */
     sDrewVoxel = voxel || warmingUp;

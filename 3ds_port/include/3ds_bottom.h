@@ -39,6 +39,9 @@ bool CtrBottom_TakesGameFrame(void);
 /* A menu screen ran this frame or the last, wherever its picture goes. */
 bool CtrBottom_MenuShown(void);
 void CtrBottom_ShowGameFrame(const uint16_t *frame);
+/* SINGLE SCREEN: this screen's canvas while it is shown on the top screen
+ * (X), and where its pointer is; NULL when it is not. */
+const uint16_t *CtrBottom_PanelOnTop(int *pointerX, int *pointerY);
 
 /*
  * The light green the bottom screen's sections sit on (its own screens, and

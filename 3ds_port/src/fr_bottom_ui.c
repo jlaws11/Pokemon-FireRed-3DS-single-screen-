@@ -1706,6 +1706,73 @@ bool CtrBottom_TakesGameFrame(void)
     return CtrBottom_MenuShown() && !CtrSingleScreen();
 }
 
+/*
+ * SINGLE SCREEN: this screen on the top one. X in the field shows it there
+ * (3ds_soft_video.c draws it, CtrBottom_PanelOnTop) with a pointer for its
+ * touch controls: the D-pad or the circle pad moves it, A touches where it
+ * points, B or X puts it away. The game sees no keys meanwhile (FilterKeys),
+ * nor the B or X that closed it until they are let go. A menu opened from
+ * it (POKeMON, BAG...) leaves the field, and so closes it.
+ */
+#define POINTER_STEP 3
+static bool sPanelOnTop, sPanelSwallow;
+static int sPointerX = W / 2, sPointerY = H / 2;
+
+static void PanelOnTopInput(void)
+{
+    const CtrInput *in = CtrInput_Get();
+    bool allowed = CtrSingleScreen() && sInGame && InField();
+
+    if (!sPanelOnTop)
+    {
+        if (allowed && (in->physicalDown & CTR_KEY_X))
+        {
+            sPanelOnTop = true;
+            sPanelSwallow = false;
+            PlaySE(SE_SELECT);
+            CtrLog_Write(CTR_LOG_INPUT, "bottom: shown on top at frame %lu", (unsigned long)CtrGame_Frames());
+        }
+        return;
+    }
+    if (!allowed || (in->physicalDown & (CTR_KEY_X | CTR_KEY_B)))
+    {
+        sPanelOnTop = false;
+        sPanelSwallow = true;
+        if (allowed)
+            PlaySE(SE_SELECT);
+        return;
+    }
+    {
+        int dx = 0, dy = 0, cx = in->circleX, cy = in->circleY;
+
+        if (in->physicalHeld & CTR_KEY_LEFT)
+            dx -= POINTER_STEP;
+        if (in->physicalHeld & CTR_KEY_RIGHT)
+            dx += POINTER_STEP;
+        if (in->physicalHeld & CTR_KEY_UP)
+            dy -= POINTER_STEP;
+        if (in->physicalHeld & CTR_KEY_DOWN)
+            dy += POINTER_STEP;
+        /* the circle pad: faster the further it leans, +y up */
+        if (cx * cx + cy * cy >= CTR_CIRCLE_LEAVE * CTR_CIRCLE_LEAVE)
+        {
+            dx += cx / 24;
+            dy -= cy / 24;
+        }
+        sPointerX = sPointerX + dx < 0 ? 0 : sPointerX + dx >= W ? W - 1 : sPointerX + dx;
+        sPointerY = sPointerY + dy < 0 ? 0 : sPointerY + dy >= H ? H - 1 : sPointerY + dy;
+    }
+}
+
+const uint16_t *CtrBottom_PanelOnTop(int *pointerX, int *pointerY)
+{
+    if (!sPanelOnTop)
+        return NULL;
+    *pointerX = sPointerX;
+    *pointerY = sPointerY;
+    return sCanvas;
+}
+
 static void DrawPad(void)
 {
     Shell(COLUMN_X, 0, W - COLUMN_X, H);
@@ -1869,6 +1936,13 @@ static bool ReadTouch(u16 *x, u16 *y)
 
     *x = in->touchX;
     *y = in->touchY;
+    /* shown on the top screen: A touches where the pointer is */
+    if (sPanelOnTop && !in->touchActive)
+    {
+        *x = (u16)sPointerX;
+        *y = (u16)sPointerY;
+        return (in->physicalHeld & CTR_KEY_A) != 0;
+    }
 #ifdef CTR_INPUT_SCRIPT
     if (CtrScript_Touch(x, y))
         return true;
@@ -1925,7 +1999,10 @@ void CtrBottom_Frame(void)
 {
     ViewState now;
     u16 x, y;
-    bool active = ReadTouch(&x, &y);
+    bool active;
+
+    PanelOnTopInput();
+    active = ReadTouch(&x, &y);
 
     if (sInjectFrames && --sInjectFrames == 0)
         sInjected = 0;
@@ -2028,6 +2105,15 @@ uint16_t CtrBottom_InjectedKeys(void)
 
 uint16_t CtrBottom_FilterKeys(uint16_t held)
 {
+    /* SINGLE SCREEN's panel on top takes the keys (PanelOnTopInput) */
+    if (sPanelOnTop)
+        return 0;
+    if (sPanelSwallow)
+    {
+        if (CtrInput_Get()->physicalHeld & (CTR_KEY_GAME | CTR_KEY_X | CTR_KEY_Y))
+            return 0;
+        sPanelSwallow = false;
+    }
     return held;
 }
 
