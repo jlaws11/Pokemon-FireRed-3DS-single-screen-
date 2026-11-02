@@ -175,6 +175,11 @@ static const u8 *SpeedText(void)
 
 const CtrExtra gCtrExtras[] =
 {
+    /* For a player who sees the top screen alone (an emulator showing one
+     * screen, a handheld PC): the game's menu screens stay on the top screen
+     * and START opens the game's own start menu, as on the GBA
+     * (fr_bottom_ui.c, CtrSingleScreen). */
+    {CTR_EXTRAS_ENHANCEMENTS, "SINGLE SCREEN", "single_screen", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "GAME SPEED", "speed", 0, 0, NULL, NULL, SpeedStep, SpeedText},
     {CTR_EXTRAS_ENHANCEMENTS, "EXP FOR CATCHING", "exp_catch", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "PARTY EXP SHARE", "exp_share", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},

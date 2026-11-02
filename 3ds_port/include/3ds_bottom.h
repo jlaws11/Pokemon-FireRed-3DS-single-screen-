@@ -36,6 +36,8 @@ uint16_t CtrBottom_FilterKeys(uint16_t held);
 /* A menu screen's picture: whether this frame's belongs below, and showing it
  * (240x160 BGR555). */
 bool CtrBottom_TakesGameFrame(void);
+/* A menu screen ran this frame or the last, wherever its picture goes. */
+bool CtrBottom_MenuShown(void);
 void CtrBottom_ShowGameFrame(const uint16_t *frame);
 
 /*

@@ -80,6 +80,7 @@ bool CtrScript_Stick(s16 *x, s16 *y);
 #define FOLLOWER_KEY "follower"
 #define DAYNIGHT_KEY "daynight"      /* ctr_voxel.c: 0 off, 1 the clock, 2 fast */
 #define SCREEN_FIT_KEY "screen_fit"  /* 3ds_soft_video.c: 0 the GBA's proportions, 1 the width */
+#define SINGLE_SCREEN_KEY "single_screen"  /* fr_extras.c: CtrSingleScreen */
 
 /* start_menu.c's STARTMENU_* */
 enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION, MENU_COUNT };
@@ -1679,10 +1680,30 @@ void Port_MenuOnBottom(void)
     sMenuFrame = CtrGame_Frames();
 }
 
+/*
+ * SINGLE SCREEN (OPTIONS' ENHANCEMENTS, fr_extras.c): for a player who sees
+ * the top screen alone - an emulator showing one screen, a handheld PC. The
+ * game's menu screens stay on the top screen, as on the GBA (no picture goes
+ * down here: CtrBottom_TakesGameFrame), and START opens the game's own start
+ * menu there (start_menu.c, CtrStartMenu_AcceptStart). The battles already
+ * have the game's own menus on the top screen; this one's buttons are only
+ * another way to choose. Everything then works with the buttons.
+ */
+bool8 CtrSingleScreen(void)
+{
+    return CtrExtras_Get(SINGLE_SCREEN_KEY) == 1;
+}
+
+/* A menu screen ran this frame or the last (Port_MenuOnBottom). */
+bool CtrBottom_MenuShown(void)
+{
+    return CtrGame_Frames() - sMenuFrame <= 1;
+}
+
 /* The game's picture this frame belongs on the bottom screen. */
 bool CtrBottom_TakesGameFrame(void)
 {
-    return CtrGame_Frames() - sMenuFrame <= 1;
+    return CtrBottom_MenuShown() && !CtrSingleScreen();
 }
 
 static void DrawPad(void)

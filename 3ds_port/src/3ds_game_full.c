@@ -451,7 +451,10 @@ void Port_SceneOnTop(void)
 
 bool Port_SceneShown(void)
 {
-    return sFrames - sSceneFrame <= 1;
+    /* SINGLE SCREEN keeps the menu screens on the top screen
+     * (CtrBottom_TakesGameFrame): there they are a scene like these, the
+     * GBA's picture rather than the world, whatever callback 1 says. */
+    return sFrames - sSceneFrame <= 1 || (CtrBottom_MenuShown() && !CtrBottom_TakesGameFrame());
 }
 
 bool CtrGame_IsOverworld(void)
