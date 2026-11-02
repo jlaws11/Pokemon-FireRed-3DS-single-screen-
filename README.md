@@ -1,3 +1,104 @@
+# Pokémon FireRed 3DS — Single Screen (unofficial fork)
+
+> **This is an unofficial fork of [Pokémon FireRed 3DS](https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS)
+> by NachoGonzalez2001.** It adds a **single-screen mode** for playing on one screen: an emulator such as
+> Azahar on a Steam Deck, a handheld PC or a TV. It is not made or supported by the FireRed 3DS developer:
+> please don't ask them for help with it. The original project's README follows below this section.
+
+## What this fork adds
+
+A **SINGLE SCREEN** option (OPTIONS → ENHANCEMENTS, the first row; off until you turn it on):
+
+- **The game's menus stay on the top screen, as on the GBA.** The START menu (Pokédex, Pokémon, bag,
+  save, option...), the party, bag, shops, PC boxes and summaries open on the top screen instead of moving
+  to the bottom one.
+- **Battles are as on the GBA:** FIGHT / BAG / POKéMON / RUN and the moves are in the battle's own text box
+  on the top screen.
+- **Everything works with buttons**, so you never need the touch screen and can keep your emulator on a
+  single-screen layout. The bottom screen still works when you want it: the region map, quick keys and this
+  port's own OPTIONS live there.
+
+Based on the official code as of 2 November 2026 (commit `f10061c`). Details for developers:
+[docs/SINGLE_SCREEN.md](docs/SINGLE_SCREEN.md).
+
+## How it fits together
+
+FireRed 3DS is two files in `/3ds/firered3ds/`:
+
+| File | What it is | Where it comes from |
+|---|---|---|
+| `FireRed3DS.3dsx` | The game engine, with single screen built in. No Pokémon content in it. | Built from this fork's code by GitHub. |
+| `firered3ds.pak` | The game data: graphics, maps, text, music, the 3D world. | Made on **your** machine from **your own** Pokémon FireRed ROM. |
+
+The **Builder AppImage** on this fork's
+[Releases](https://github.com/jlaws11/Pokemon-FireRed-3DS-single-screen-/releases) carries the engine and
+makes the data pack from your ROM, then writes both files. It does not turn other GBA games into 3DS games:
+FireRed 3DS is a rebuild of Pokémon FireRed alone.
+
+A data pack only works with the engine it was made for. Use this fork's builder, not the official
+release's, to make the pack for this fork's engine.
+
+## Install on a Steam Deck (or any Linux PC)
+
+You need **Azahar** (the 3DS emulator; on the Deck from EmuDeck or the Discover store) and your own
+**Pokémon FireRed (USA/Europe, Rev 1)** ROM, dumped from your cartridge
+(SHA-1 `dd5945db9b930750cb39d00c84da8571feebf417`). Other versions and ROM hacks are refused.
+
+1. In Desktop Mode, download **FireRed3DS-Builder-single-screen-x86_64.AppImage** from the newest
+   `builder-…` release on the [Releases](https://github.com/jlaws11/Pokemon-FireRed-3DS-single-screen-/releases)
+   page.
+2. If you already play FireRed 3DS, back up `firered3ds.sav` from Azahar's `sdmc/3ds/firered3ds/` folder first.
+3. Right-click the AppImage → Properties → Permissions → tick **Is executable** (or add it to Gear Lever),
+   then open it.
+4. Choose your ROM. For **Install to**, choose Azahar's `sdmc` folder. It may say the folder is not a 3DS
+   SD card, which is fine. Press **Install** and wait about 10–15 minutes while it builds the 3D world's data.
+   It works offline; online, it also fetches the optional follower Pokémon sprites.
+5. In Azahar, open `sdmc/3ds/firered3ds/FireRed3DS.3dsx` with its normal two-screen layout. On the bottom
+   screen, turn on **OPTIONS → ENHANCEMENTS → SINGLE SCREEN**.
+6. Switch Azahar to the **Single Screen** layout (View → Screen Layout). To play from Gaming Mode, add
+   Azahar to Steam (Games → Add a Non-Steam Game). Optionally, put Azahar's **Swap Screens** hotkey on a
+   back button for when you want the bottom screen (the region map or this port's OPTIONS).
+
+From the command line: `./FireRed3DS-Builder-single-screen-x86_64.AppImage build --rom firered.gba --output folder`,
+then copy `folder/3ds` to the SD card (Azahar's `sdmc`).
+
+## Sharing it
+
+- **Share the link to this fork, never a ROM or a data pack.** Everyone makes their own pack from their own
+  cartridge dump with the AppImage. This fork, its releases and the AppImage contain no game data.
+- The original project has no licence file. This fork keeps all of its credits and changes only what single
+  screen needs; if you plan to share it widely, it is polite to ask the original author first, or to offer
+  the change to them as a pull request.
+- Windows: no Windows build of this fork's builder yet. The AppImage is for Linux and the Steam Deck.
+
+## When the code changes
+
+Every change to the engine needs a new data pack, and so a new recipe, the file that tells the builder how
+to make the pack from a ROM. Making a recipe needs a copy of the ROM once, so it is made privately, never on
+GitHub. Then:
+
+1. A push to `main` builds the new `FireRed3DS.3dsx` (the **Single screen release** workflow) in a pinned
+   build environment (`.github/release_env`, `.github/release-env.toml`) and publishes it as a
+   `single-screen-…` release.
+2. The recipe for it is made from the build's data and a ROM (`tools/gen_recipe.py`), audited
+   (`tools/release_audit.py --strict --rom`), and committed as `.github/payload/firered3ds.recipe` with
+   `.github/payload/engine.toml` (which release and data ABI it is for). The build's data reaches that step
+   only encrypted to `.github/pack-inputs.pub.pem`.
+3. That commit builds a new **Builder AppImage** with the new engine and recipe.
+
+Changes to docs or this README do not rebuild the game.
+
+## Status and limits
+
+- **Not yet tested in play.** It builds and the AppImage's pack matches the engine. If something looks
+  wrong in a menu or a battle, open an issue on this fork with a screenshot.
+- Made for emulators. It should also run on a real 3DS, but that is untested.
+- English (USA/Europe, Rev 1) FireRed only, like the official release.
+- If the official FireRed 3DS changes after the commit above, this fork does not have it until it is
+  brought up to date.
+
+---
+
 <p align="center">
   <img src="3ds_port/assets/artwork/FireRed%203DS.png" alt="FireRed 3DS" width="560">
 </p>
