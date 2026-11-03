@@ -15,7 +15,7 @@ on:
     # Changes to the docs, the README or the other workflows alone do not
     # rebuild the game; a new key or a change to this workflow does.
     paths-ignore: ['docs/**', 'README.md', '.github/payload/**', '.github/cleanup-releases.txt',
-                   '.github/workflows/builder-appimage.yml', '.github/workflows/cleanup-releases.yml']
+                   '.github/workflows/builder-appimage.yml', '.github/whats-new.md', '.github/workflows/cleanup-releases.yml']
 
 permissions:
   contents: write
