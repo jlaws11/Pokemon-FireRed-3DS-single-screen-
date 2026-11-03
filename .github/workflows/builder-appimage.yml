@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
     # A new recipe (with the engine it was made for), a builder change or this file.
-    paths: ['.github/payload/**', '.github/workflows/builder-appimage.yml', 'builder/**']
+    paths: ['.github/payload/**', '.github/workflows/builder-appimage.yml', '.github/whats-new.md', 'builder/**']
 
 permissions:
   contents: write
@@ -143,6 +143,10 @@ jobs:
 
           Contains no game data and no ROM content. Unofficial build of the project's builder, not from the Pokémon FireRed 3DS developer.
           EOF
+          # What changed, from .github/whats-new.md, after the first paragraph.
+          if [ -f .github/whats-new.md ]; then
+            { head -n 2 notes.md; cat .github/whats-new.md; echo; tail -n +3 notes.md; } > notes.new && mv notes.new notes.md
+          fi
           gh release create "$tag" FireRed-3DS-Single-Screen-Installer.AppImage SHA256SUMS-builder.txt \
             --target "$GITHUB_SHA" --title "Steam Deck & Linux installer: Pokémon FireRed 3DS Single Screen" --notes-file notes.md --latest
           # The engine release is for developers: titled so, and never "Latest".
