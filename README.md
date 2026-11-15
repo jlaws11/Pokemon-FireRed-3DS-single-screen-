@@ -20,7 +20,9 @@ A **SINGLE SCREEN** option (OPTIONS → ENHANCE, the first row; off until you tu
 - **Everything works with buttons**, so you never need the touch screen and can keep your emulator on a
   single-screen layout.
 
-Based on the official code as of 2 November 2026 (commit `f10061c`). Details for developers:
+Based on the official **version 0.5.1** (commit `91d7b9b`), so it has everything 0.5.1 brings: **visible wild
+Pokémon** (OPTIONS → ENHANCE → VISIBLE WILD), Mega Evolution, the renewed Gym Leaders, Elite Four and wild
+Pokémon, and the physical/special split. Details for developers:
 [docs/SINGLE_SCREEN.md](docs/SINGLE_SCREEN.md).
 
 ## How it fits together
@@ -121,10 +123,14 @@ technical groundwork of
 **This repository and its releases do not contain the game.** You need your
 own dump of your own Pokémon FireRed cartridge.
 
+**Website and web builder:
+[nachogonzalez2001.github.io/Pokemon-FireRed-3DS](https://nachogonzalez2001.github.io/Pokemon-FireRed-3DS/)**,
+to build the game in your browser from your ROM, with nothing to install.
+
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/dual-screen.png" alt="Cerulean City on the top screen, the region map, menu and party on the bottom screen" width="400">
+  <img src="docs/screenshots/dual-screen.png" alt="Cerulean City with Charmeleon following on the top screen, the region map, party and menu on the bottom screen" width="400">
 </p>
 
 <table>
@@ -143,6 +149,10 @@ own dump of your own Pokémon FireRed cartridge.
   <tr>
     <td><img src="docs/screenshots/viridian-forest.png" alt="Viridian Forest with Butterfree following"><br><sub>Viridian Forest</sub></td>
     <td><img src="docs/screenshots/mt-moon.png" alt="Mt. Moon with Clefairy following"><br><sub>Mt. Moon</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/silph-co.png" alt="Silph Co. with Porygon following"><br><sub>Silph Co.</sub></td>
+    <td><img src="docs/screenshots/pokemon-mansion.png" alt="Pokémon Mansion with Growlithe following"><br><sub>Pokémon Mansion</sub></td>
   </tr>
 </table>
 
@@ -168,16 +178,40 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
   shadows, a day/night cycle and an adjustable camera. The classic 2D field
   is one option away.
 - **3D battles** (optional): the battle in front of the voxel world.
-- **A bottom screen like a Pokédex**: region map, party, quick menu keys, the
-  battle's moves and actions to touch; menus run on it while the top screen
-  keeps the world.
+- **A bottom screen made for touch**: region map, party and quick menu keys in
+  the field, with their own touch screens for the battle, the party, the bag,
+  the summary, the trainer card, the Pokédex, the PC's boxes and the fly map,
+  while the top screen keeps the world. Other menus show the game's own
+  picture there and use the console's buttons.
 - **Free movement** (optional): walk any way the circle pad points.
 - **A Pokémon that follows you** in the 3D world: the first of your party
   walks behind you, in eight directions, in Mystery Dungeon style (see below).
+- **Renewed wild Pokémon**: every non-legendary Pokémon of the first three
+  generations lives somewhere in Kanto or the Sevii Islands, by level and
+  habitat, and the National Pokédex is open from the start.
+- **Visible wild Pokémon** (optional, OPTIONS > VISIBLE WILD): instead of
+  random encounters, up to 2, 4 or 6 wild Pokémon wander the grass, caves and
+  water in Mystery Dungeon style; touch one to battle it.
+- **Mega Evolution**: 48 Mega Evolutions of the first three generations and
+  of Pokémon Legends: Z-A, with the MEGA RING and MEGA STONES found in the
+  story, and renewed Gym Leaders and Elite Four that use them.
+- **Physical/special split** (optional, OPTIONS > MOVE SPLIT): each move is
+  physical or special by itself, as in the later games, instead of by its
+  type; the move pages show its category.
 - **Options**: settings, quality-of-life enhancements (game speed, exp share,
   reusable TMs, HMs without the move...) and cheats, from the bottom screen.
 
 ## Install (players)
+
+**In your browser (any system).** Open the
+[web builder](https://nachogonzalez2001.github.io/Pokemon-FireRed-3DS/build.html),
+choose your ROM - Pokémon FireRed (USA, Rev 1), SHA-1
+`dd5945db9b930750cb39d00c84da8571feebf417` - and it makes a ZIP with the
+`3ds` folder to copy to the root of the SD card. The ROM is read on your
+device and never uploaded; the first build takes a few minutes.
+
+**On Windows**, the same builder as a program that installs straight to the
+SD card:
 
 1. Download `FireRed3DS-v<version>-Windows.zip` from the
    [Releases](../../releases) page and extract it.

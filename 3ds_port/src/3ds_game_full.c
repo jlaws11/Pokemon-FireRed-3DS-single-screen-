@@ -76,6 +76,7 @@ static uint16_t sWorld[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 #define TOP_HOLD_GRACE 60
 static bool sTopHeld;
 static u32 sTopHeldSince;
+static u32 sSceneFrame = (u32)-2;
 #if CTR_VOXEL_ENABLED
 /* Hooks the Emerald port's voxel modules ask of the game (field_door.c and
  * sprite.c there); FireRed's 3D world starts without open doors or weather. */
@@ -359,6 +360,12 @@ void CtrGame_VBlank(void)
          * the top: a finished fade to black is no longer active, but black. */
         bool clean = !gPaletteFade.active && gPaletteFade.y == 0;
 
+        /* A scene from a menu (an item used, an evolution) goes back to that
+         * menu, or on to another (a move to forget): what it leaves on the top
+         * is the world from before, not itself nor what comes up after it. */
+        if (sFrames - sSceneFrame < TOP_HOLD_GRACE && !Port_FieldShown()
+         && !(gMain.inBattle && gMain.callback2 == BattleMainCB2))
+            clean = false;
         sTopHeld = false;
         CtrSoftVideo_SetFrame(sFrame);
         CtrSoftVideo_SetFrameDrawn(gPortDrawLines & PORT_DRAW_FRAME);
@@ -442,8 +449,6 @@ uint32_t CtrGame_Checks(void) { return 0; }
  * of Fame, the slot machine...) leaves callback1 at CB1_Overworld, so its
  * main callback says it runs: the top screen shows its GBA picture, not the
  * world. One frame of grace, as for Port_MenuOnBottom. */
-static u32 sSceneFrame = (u32)-2;
-
 void Port_SceneOnTop(void)
 {
     sSceneFrame = sFrames;
@@ -735,6 +740,7 @@ static void DebugGrant(void)
 #include "battle_setup.h"
 #include "quest_log.h"
 #include "script.h"
+#include "event_scripts.h"
 #include "script_pokemon_util.h"
 #include "constants/items.h"
 #include "constants/species.h"
@@ -765,6 +771,32 @@ static void DebugBattle(void)
         idleSince = sFrames;
     if (sFrames - idleSince < 120)
         return;
+#ifdef CTR_DEBUG_BATTLE_TRAINERS
+    /* CTR_DEBUG_BATTLE_TRAINERS=a,b,...: each in turn, the party healed
+     * before each, the last one's outcome logged. */
+    {
+        static const u16 sTrainers[] = { CTR_DEBUG_BATTLE_TRAINERS };
+        static int next;
+
+        if (next > 0)
+            CtrLog_Write(CTR_LOG_GAME, "debug battle: trainer %d outcome %d", sTrainers[next - 1], gBattleOutcome);
+        if (next >= (int)ARRAY_COUNT(sTrainers))
+        {
+            done = TRUE;
+            CtrLog_Write(CTR_LOG_GAME, "debug battle: all %d done", next);
+            return;
+        }
+        idleSince = 0;
+        HealPlayerParty();
+        CtrLog_Write(CTR_LOG_GAME, "debug battle %d/%d: trainer %d", next + 1, (int)ARRAY_COUNT(sTrainers),
+                     sTrainers[next]);
+        /* the battle returns to this script, which gives the field back */
+        ScriptContext_SetupScript(EventScript_ReleaseEnd);
+        gTrainerBattleOpponent_A = sTrainers[next++];
+        StartTrainerBattle();
+        return;
+    }
+#endif
     done = TRUE;
 #ifdef CTR_DEBUG_BATTLE_TRAINER
     CtrLog_Write(CTR_LOG_GAME, "debug battle: trainer %d", CTR_DEBUG_BATTLE_TRAINER);

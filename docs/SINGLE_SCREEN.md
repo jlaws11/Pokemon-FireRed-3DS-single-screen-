@@ -16,13 +16,17 @@ OFF/ON, default OFF). `CtrSingleScreen()` in `3ds_port/src/fr_bottom_ui.c` reads
   `CtrBottom_MenuShown` still tells the port that a menu is up, and `Port_SceneShown`
   (`3ds_port/src/3ds_game_full.c`) counts that as a shown scene, so the top screen keeps updating.
 - **START menu.** The port normally keeps START from opening the GBA START menu in the field (its
-  functions are on the bottom screen). `patches/pokefirered/0015-single-screen-start-menu.patch` lets
+  functions are on the bottom screen). `patches/pokefirered/0031-single-screen-start-menu.patch` lets
   `CtrStartMenu_AcceptStart` accept START when single screen is on.
 - **Battles.** The port shows only "What will ... do?" on top and puts the actions and moves on the bottom
-  screen. `patches/pokefirered/0016-single-screen-battle-menus.patch` keeps the GBA's own: in single screen
+  screen. `patches/pokefirered/0032-single-screen-battle-menus.patch` keeps the GBA's own: in single screen
   `PlayerHandleChooseAction` draws the action menu and `gBattle_BG0_Y` stays where the GBA has it (160 for
   the actions, 320 for the moves), in the player's controller and the first battle's (Oak/old man). The
   bottom screen's battle buttons still work.
+- **The bottom screen's own pages.** The party, bag, summary, Pokédex, PC and naming have native pages on
+  the bottom screen (0.5.1), drawn from the game's menu running underneath; normally they take the D-pad
+  and move the game's cursor themselves. In single screen the game's menu is on the top screen, so
+  `PageDpadKeys` gives the page no keys and the D-pad goes to the game; the page below just follows.
 - **The bottom screen on top.** It is touch only, so in single screen X shows it on the top screen with
   button controls (`PanelOnTopInput`, `fr_bottom_ui.c`). Its targets are found by asking `HitTest` over the
   screen (`ScanTargets`, again after every press and every few frames), so every page's own buttons,

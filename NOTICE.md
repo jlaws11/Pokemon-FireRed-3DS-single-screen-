@@ -23,6 +23,13 @@ bootstrap and its `0004-platform-layer.patch`. Files in
 `3ds_port/src/voxel/` additionally carry the attribution of their own
 `NOTICE.md` (pokeemerald-multiplatform, MIT).
 
+The visible wild Pokémon (OPTIONS, ENHANCEMENTS, VISIBLE WILD; the
+`VisibleWild_*` section of `src/wild_encounter.c` in
+`patches/pokefirered/0028-wild-renewed-and-visible.patch`) are adapted from
+that project's `patches/pokeemerald/0014-visible-wild.patch` as of its
+commit d724c5d, under the MIT License below: FireRed's encounter tiles,
+Unown letters, the SHINY ODDS setting and the Pokémon Tower's ghosts.
+
 Its port code is distributed under the MIT License:
 
     MIT License
@@ -56,3 +63,52 @@ stay under the ignored `build/` directory.
 
 Pokémon FireRed is a trademark of Nintendo, Game Freak, Creatures and The
 Pokémon Company. This is an unofficial fan project.
+
+## Mega Evolution sprites
+
+The Mega Evolution battle sprites (`3ds_port/src/fr_mega_art.c`, made by
+`tools/dev/mega_sprites.py`) come from the
+[Gen VI: DS-Style 64x64 Pokémon Sprite Resource](https://www.pokecommunity.com/threads/gen-vi-ds-style-64x64-pokemon-sprite-resource.314422/)
+on PokéCommunity, which allows their use in fan projects with credit to that
+thread. The resource continues Chaos Rush's DS-Style 64x64 Pokémon Sprite
+Resource. As its credits list them, for the forms used here:
+
+- MrDollSteak: every sprite not listed below
+- Spherical Ice: Mega Beedrill front
+- leparagon: Mega Alakazam, Mega Mewtwo X, Mega Mewtwo Y, Mega Tyranitar,
+  Mega Blaziken front, Mega Swampert back and its quality check, Mega Latias,
+  Mega Latios
+- Cynda: Mega Swampert, Mega Rayquaza back
+- Sky High: Mega Salamence
+- aXl: Mega Sableye front, Mega Aggron front
+- Bozster: Mega Aggron front basis
+- Zerudez, MilanesaCosmic: Mega Manectric front
+- Quanyails: Mega Absol front
+- Wobblebuns: Mega Kangaskhan's baby
+- BlackWhiteRobin: Mega Blastoise back
+- The Cynical Poet: Mega Slowbro front
+- Criminon: quality check on Mega Blastoise
+- Fridave: quality check on Mega Houndoom
+- HeXeR: quality check on Mega Metagross back
+- Chaos Rush: the original resource, continued with their permission
+- Layell: permission to use sprites from the Smogon XY Sprite Project
+
+The Mega Evolutions of Pokémon Legends: Z-A (Mega Dragonite, Mega Meganium,
+Mega Feraligatr, Mega Skarmory, Mega Clefable, Mega Victreebel and Mega
+Starmie) come from the
+[DS-style Gen VII and Beyond Pokémon Sprite Repository in 64x64](https://www.pokecommunity.com/threads/ds-style-gen-vii-and-beyond-pok%C3%A9mon-sprite-repository-in-64x64.368703/)
+on PokéCommunity, free to use with credit to its contributors:
+
+- Mega Dragonite: Axel_CodeInfinity (front), Lykeron (back), leParagon (quality check)
+- Mega Meganium: Red7246 (front, back), leParagon (front, quality check)
+- Mega Feraligatr: Axel_CodeInfinity (front, back), Lykeron, Alxndre~◇,
+  leParagon (quality check)
+- Mega Clefable: Cesare_Cbass (front), leParagon (back, quality check)
+- Mega Starmie: Alxndre~◇
+- Mega Skarmory, Mega Victreebel: the repository's contributors; its
+  credits table does not name their artists yet
+
+The sprites are reduced to 16 colours for the GBA's battle screen. The MEGA
+key's Key Stone, the bag icons of the MEGA STONE, MEGA STONE Y and MEGA RING
+(tools/dev/mega_item_icons.py) and the Mega Evolution effect's orbs, sphere
+and shards (tools/dev/mega_fx.py) are the port's own, drawn by those scripts.

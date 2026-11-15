@@ -1,5 +1,8 @@
 ## What's new
 
+- **Updated to the official FireRed 3DS 0.5.1**, which brings **visible wild Pokémon** (OPTIONS → ENHANCE → VISIBLE WILD: see which Pokémon walk in the grass, caves and water, and touch one to battle it), Mega Evolution, renewed Gym Leaders, Elite Four and wild Pokémon, and the physical/special split.
+- Single screen on 0.5.1's new bottom screen: its party, bag, summary, Pokédex and PC pages follow the game's own menu on the top screen, and the D-pad goes to that menu.
+
 With **SINGLE SCREEN** on (OPTIONS → ENHANCE):
 
 - **START** opens the game's own menu on the top screen, as on the GBA; the party, bag, shops, PC and summaries open on top too.
