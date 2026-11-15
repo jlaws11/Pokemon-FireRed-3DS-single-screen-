@@ -1,4 +1,4 @@
 # The engine release the recipe beside this file was made for.
-release = "single-screen-5148e60"
-sha256 = "28bc198f490847bc60d8308a224b09ec9070915288ee28916852313052ee0279"
-abi = "7b67a89d"
+release = "single-screen-318987f"
+sha256 = "59ab12e17528d9f9cc0ac24cf8f663c63518766b3dbb0838d57e43ad8ceee539"
+abi = "44a7cfc4"
