@@ -43,6 +43,9 @@ void CtrBottom_ShowGameFrame(const uint16_t *frame);
  * (X), and the box of the target highlighted on it (x1 < x0 for none); NULL
  * when it is not shown. */
 const uint16_t *CtrBottom_PanelOnTop(int *x0, int *y0, int *x1, int *y1);
+/* An award's banner while it shows (laid out as the canvas, its first `rows`
+ * rows), and how opaque it is now (0..255); NULL when none shows. */
+const uint16_t *CtrBottom_Banner(int *rows, int *alpha);
 
 /*
  * The light green the bottom screen's sections sit on (its own screens, and

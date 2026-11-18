@@ -20,6 +20,13 @@ A **SINGLE SCREEN** option (OPTIONS → ENHANCE, the first row; off until you tu
 - **Everything works with buttons**, so you never need the touch screen and can keep your emulator on a
   single-screen layout.
 
+And **Awards** (with or without single screen): 56 achievements built into the game, with goals like the
+RetroAchievements set for GBA FireRed (the badges, gym leaders beaten with a small low-level team, the rival
+battles, Team Rocket, gifts and in-game trades, legendary Pokémon, the Kanto Pokédex, the Sevii Islands). A
+banner shows on the top screen when you win one, and **OPTIONS → AWARDS** lists them all (tap one to read what
+it asks). They are kept in `sdmc/3ds/firered3ds/awards.txt`. They are this game's own: RetroAchievements cannot
+see a 3DS homebrew game (and Azahar has no RetroAchievements).
+
 Based on the official **version 0.5.1** (commit `91d7b9b`), so it has everything 0.5.1 brings: **visible wild
 Pokémon** (OPTIONS → ENHANCE → VISIBLE WILD), Mega Evolution, the renewed Gym Leaders, Elite Four and wild
 Pokémon, and the physical/special split. Details for developers:

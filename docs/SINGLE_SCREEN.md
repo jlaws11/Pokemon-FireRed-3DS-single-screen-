@@ -36,6 +36,16 @@ OFF/ON, default OFF). `CtrSingleScreen()` in `3ds_port/src/fr_bottom_ui.c` reads
   field; a menu it opens (POKeMON, BAG...) leaves the field and so closes it. `3ds_soft_video.c` draws the
   canvas (`CtrBottom_PanelOnTop`) over the dimmed game with the highlight framed.
 
+## Awards
+
+`3ds_port/src/fr_awards.c`: the list (name, words, and a test of the save's flags, trainers beaten or
+Pokédex), checked every 20 frames while a game is on (`CtrAwards_Frame`, from `CtrBottom_Frame`). The gym
+challenges look at the party when the badge's flag turns on, the solo Hall of Fame when its game stat goes up;
+those count only when seen happening. Won awards are kept by name in `awards.txt` (`CTR_DATA_DIR`). New ones
+are announced with a banner drawn once with the bottom screen's own text and boxes into a picture of its own
+(`DrawBanner`, `sDraw`) and shown on the top screen by `3ds_soft_video.c` (`CtrBottom_Banner`); several won at
+once (a save's earlier progress) make one banner. OPTIONS has an AWARDS tab listing them (`AWARDS_TAB`).
+
 ## Builds
 
 Every engine change needs a new data pack and recipe. See the README's "When the code changes"; the

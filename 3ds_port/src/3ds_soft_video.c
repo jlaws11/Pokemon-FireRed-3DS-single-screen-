@@ -345,6 +345,58 @@ static void PanelDraw(int x0, int y0, int x1, int y1)
     }
 }
 
+/*
+ * An award's banner (CtrBottom_Banner): the first rows of a canvas laid out
+ * as the panel's, turned upright and tiled the same way into a texture of
+ * its own, drawn at the top of the top screen over everything, fading in and
+ * out.
+ */
+#define BANNER_TEX_H 64
+static C3D_Tex sBannerTex;
+static uint16_t *sBannerLinear;
+static bool sBannerTried, sBannerReady;
+
+static bool BannerUpload(const uint16_t *canvas, int rows)
+{
+    if (!sBannerTried)
+    {
+        sBannerTried = true;
+        sBannerLinear = linearAlloc(PANEL_TEX_W * BANNER_TEX_H * sizeof(uint16_t));
+        sBannerReady = sBannerLinear != NULL && C3D_TexInit(&sBannerTex, PANEL_TEX_W, BANNER_TEX_H, GPU_RGB565);
+        if (sBannerReady)
+        {
+            memset(sBannerLinear, 0, PANEL_TEX_W * BANNER_TEX_H * sizeof(uint16_t));
+            C3D_TexSetFilter(&sBannerTex, GPU_NEAREST, GPU_NEAREST);
+        }
+        CtrLog_Write(CTR_LOG_VIDEO, "award banner %s", sBannerReady ? "ready" : "unavailable");
+    }
+    if (!sBannerReady || rows > BANNER_TEX_H)
+        return false;
+    for (int y = 0; y < rows; ++y)
+    {
+        uint16_t *row = sBannerLinear + y * PANEL_TEX_W;
+        const uint16_t *src = canvas + (CTR_BOTTOM_HEIGHT - 1 - y);
+
+        for (unsigned x = 0; x < CTR_BOTTOM_WIDTH; ++x)
+            row[x] = src[x * CTR_BOTTOM_HEIGHT];
+    }
+    GSPGPU_FlushDataCache(sBannerLinear, PANEL_TEX_W * BANNER_TEX_H * sizeof(uint16_t));
+    C3D_SyncDisplayTransfer((u32 *)sBannerLinear, GX_BUFFER_DIM(PANEL_TEX_W, BANNER_TEX_H),
+                            (u32 *)sBannerTex.data, GX_BUFFER_DIM(PANEL_TEX_W, BANNER_TEX_H), TILE_TRANSFER_FLAGS);
+    return true;
+}
+
+static void BannerDraw(int rows, int alpha)
+{
+    Tex3DS_SubTexture sub = { CTR_BOTTOM_WIDTH, (u16)rows, 0.0f, 1.0f, CTR_BOTTOM_WIDTH / (float)PANEL_TEX_W,
+                              1.0f - rows / (float)BANNER_TEX_H };
+    C2D_Image banner = { &sBannerTex, &sub };
+    C2D_ImageTint tint;
+
+    C2D_AlphaImageTint(&tint, alpha / 255.0f);
+    C2D_DrawImageAt(banner, (TOP_WIDTH - CTR_BOTTOM_WIDTH) / 2.0f, 6.0f, 0.95f, &tint, 1.0f, 1.0f);
+}
+
 #if CTR_VOXEL_ENABLED
 /*
  * The 3D battle's shadows under the battlers (VoxelBattle_Shadows): an
@@ -482,6 +534,9 @@ static void GpuPresent(void)
     int focusX0 = 0, focusY0 = 0, focusX1 = -1, focusY1 = -1;
     const uint16_t *panel = CtrBottom_PanelOnTop(&focusX0, &focusY0, &focusX1, &focusY1);
     bool showPanel = panel != NULL && PanelUpload(panel);
+    int bannerRows = 0, bannerAlpha = 0;
+    const uint16_t *banner = CtrBottom_Banner(&bannerRows, &bannerAlpha);
+    bool showBanner = banner != NULL && BannerUpload(banner, bannerRows);
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -589,6 +644,8 @@ static void GpuPresent(void)
     }
     if (showPanel)
         PanelDraw(focusX0, focusY0, focusX1, focusY1);
+    if (showBanner)
+        BannerDraw(bannerRows, bannerAlpha);
     C3D_FrameEnd(0);
     /* the 2D picture went unseen: the game side needs not draw the next */
     sDrewVoxel = voxel || warmingUp;

@@ -26,6 +26,7 @@
  * is copied every frame it changes.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -58,6 +59,7 @@
 #include "pokemon_storage_system_internal.h"
 #include "region_map.h"
 #include "script.h"
+#include "3ds_awards.h"
 #include "sound.h"
 #include "string_util.h"
 #include "strings.h"
@@ -158,11 +160,17 @@ enum {
     OPT_RUN, OPT_FREE_MOVE, OPT_FOLLOWER, OPT_SCREEN_FIT,
     OPT_COUNT
 };
-#define OPT_MAX_ROWS 16
+/* rows of a tab: the AWARDS tab has one for each award */
+#define OPT_MAX_ROWS 64
 #define OPT_PAGE_ROWS 6
 #define TAB_X 6
 #define TAB_Y 29
 #define TAB_W 104
+/* OPTIONS' tabs: SETTINGS, ENHANCE, CHEATS and AWARDS (fr_awards.c), the
+ * last one this fork's */
+#define AWARDS_TAB CTR_EXTRAS_PAGES
+#define OPT_TABS (CTR_EXTRAS_PAGES + 1)
+#define OPT_TAB_W 76
 #define TAB_H 22
 #define LIST_X 6
 #define LIST_Y 46
@@ -183,7 +191,7 @@ enum {
 
 /* Touch targets */
 enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_RUN, HIT_BATTLE,
-       HIT_TAB = HIT_BATTLE + 6, HIT_ROW = HIT_TAB + CTR_EXTRAS_PAGES, HIT_ROW_BACK = HIT_ROW + OPT_PAGE_ROWS,
+       HIT_TAB = HIT_BATTLE + 6, HIT_ROW = HIT_TAB + OPT_TABS, HIT_ROW_BACK = HIT_ROW + OPT_PAGE_ROWS,
        HIT_PAGE_PREV = HIT_ROW_BACK + OPT_PAGE_ROWS, HIT_PAGE_NEXT, HIT_BACK, HIT_SCENE, HIT_COUNT };
 
 typedef struct {
@@ -230,6 +238,9 @@ typedef struct {
 } ViewState;
 
 static u16 sCanvas[W * H];
+/* Where Put and FillRect (and so the text, boxes and icons) draw: the canvas,
+ * or for a moment the awards banner (DrawBanner). */
+static u16 *sDraw = sCanvas;
 static u16 sLut[32768]; /* BGR555 -> RGB565 */
 static ViewState sShown;
 static bool8 sDrawn;
@@ -271,14 +282,14 @@ static u16 Rgb(u8 r, u8 g, u8 b) /* 0..31 each */
 static inline void Put(int x, int y, u16 c)
 {
     if ((unsigned)x < W && (unsigned)y < H)
-        sCanvas[x * H + (H - 1 - y)] = c;
+        sDraw[x * H + (H - 1 - y)] = c;
 }
 
 static void FillRect(int x, int y, int w, int h, u16 c)
 {
     for (int i = x < 0 ? 0 : x; i < x + w && i < W; i++)
     {
-        u16 *col = sCanvas + i * H;
+        u16 *col = sDraw + i * H;
 
         for (int j = y < 0 ? 0 : y; j < y + h && j < H; j++)
             col[H - 1 - j] = c;
@@ -390,6 +401,24 @@ static const u8 *Ascii(const char *s)
                : c == '/' ? CHAR_SLASH : c == '&' ? CHAR_AMPERSAND : c == '.' ? CHAR_PERIOD
                : c == '-' ? CHAR_HYPHEN : c == '%' ? CHAR_PERCENT : c == ':' ? CHAR_COLON
                : c == '!' ? CHAR_EXCL_MARK : c == '?' ? CHAR_QUESTION_MARK : CHAR_SPACE;
+    }
+    buf[i] = EOS;
+    return buf;
+}
+
+/* As Ascii, for a longer line (an award's words), with ' , ( and ). */
+static const u8 *AsciiLong(const char *s)
+{
+    static u8 buf[64];
+    int i;
+
+    for (i = 0; s[i] && i < 63; i++)
+    {
+        char c = s[i];
+
+        buf[i] = c == '\'' ? CHAR_SGL_QUOTE_RIGHT : c == ',' ? CHAR_COMMA
+               : c == '(' ? CHAR_LEFT_PAREN : c == ')' ? CHAR_RIGHT_PAREN
+               : *Ascii((char[2]){ c, 0 });
     }
     buf[i] = EOS;
     return buf;
@@ -688,7 +717,7 @@ static void DrawUiIcon(const UiIcon *icon, int x, int y, bool8 on)
             if (a == 0 || (unsigned)px >= W || (unsigned)py >= H)
                 continue;
             if (a < 250)
-                c = Mix(sCanvas[px * H + (H - 1 - py)], c, a, 255);
+                c = Mix(sDraw[px * H + (H - 1 - py)], c, a, 255);
             Put(px, py, c);
         }
 }
@@ -1048,9 +1077,13 @@ static const u8 *OptionValue(int row, u8 value)
 /* A row of a page: one of the options, or an extra (3ds_extras.h). */
 enum { ROW_TOGGLE, ROW_STEP, ROW_ACTION };
 typedef struct {
-    s8 opt;                  /* OPT_*, or -1 */
+    s8 opt;                  /* OPT_*, or -1, or for an award -2 - its index */
     const CtrExtra *extra;
 } OptRow;
+#define ROW_AWARD(r) ((r)->opt <= -2)
+#define ROW_AWARD_INDEX(r) (-2 - (r)->opt)
+/* the award whose words show in place of its name (a tap on it), or -1 */
+static s8 sAwardOpen = -1;
 
 static int PageRows(u8 tab, u8 sub, OptRow *rows)
 {
@@ -1062,6 +1095,12 @@ static int PageRows(u8 tab, u8 sub, OptRow *rows)
             rows[n++] = (OptRow){ (s8)i, NULL };
         return n;
     }
+    if (tab == AWARDS_TAB)
+    {
+        for (unsigned i = 0; i < CtrAwards_Count() && n < OPT_MAX_ROWS; i++)
+            rows[n++] = (OptRow){ (s8)(-2 - (int)i), NULL };
+        return n;
+    }
     for (unsigned i = 0; i < gCtrExtraCount && n < OPT_MAX_ROWS; i++)
         if (gCtrExtras[i].page == CTR_EXTRAS_SCREEN(tab, sub))
             rows[n++] = (OptRow){ -1, &gCtrExtras[i] };
@@ -1070,6 +1109,8 @@ static int PageRows(u8 tab, u8 sub, OptRow *rows)
 
 static u8 RowKind(const OptRow *r)
 {
+    if (ROW_AWARD(r))
+        return ROW_ACTION;
     if (r->opt >= 0)
         switch (r->opt)
         {
@@ -1093,6 +1134,8 @@ static bool8 RowLive(const OptRow *r)
 
 static bool8 RowOn(const OptRow *r)
 {
+    if (ROW_AWARD(r))
+        return CtrAwards_Won(ROW_AWARD_INDEX(r));
     if (r->opt == OPT_BATTLE_SCENE)
         return OptionGet(r->opt) == 0; /* the game keeps it as "off" */
     if (r->opt >= 0)
@@ -1105,6 +1148,8 @@ static s16 RowSignature(const OptRow *r)
 {
     s16 v;
 
+    if (ROW_AWARD(r))
+        return (s16)(CtrAwards_Won(ROW_AWARD_INDEX(r)) | ((ROW_AWARD_INDEX(r) == sAwardOpen) << 1));
     if (r->opt >= 0)
         return (s16)(OptionGet(r->opt) | (OptionLive(r->opt) << 8));
     v = r->extra->count ? (s16)CtrExtras_Value(r->extra) : 0;
@@ -1116,6 +1161,13 @@ static s16 RowSignature(const OptRow *r)
 
 static void RowStep(const OptRow *r, int dir)
 {
+    if (ROW_AWARD(r))
+    {
+        /* a tap shows its words, another its name again */
+        PlaySE(SE_SELECT);
+        sAwardOpen = sAwardOpen == ROW_AWARD_INDEX(r) ? -1 : (s8)ROW_AWARD_INDEX(r);
+        return;
+    }
     if (r->opt >= 0)
     {
         OptionStep(r->opt, dir);
@@ -1147,7 +1199,7 @@ static void OptRowRect(int i, int *x, int *y, int *w, int *h)
     *h = ROW_H;
 }
 
-static const char *const sTabNames[CTR_EXTRAS_PAGES] = { "SETTINGS", "ENHANCE", "CHEATS" };
+static const char *const sTabNames[OPT_TABS] = { "SETTINGS", "ENHANCE", "CHEATS", "AWARDS" };
 /* SETTINGS' pages, by what each one's rows are about */
 static const char *const sSettingsPages[] = { "GAME", "3D WORLD", "MORE" };
 
@@ -1167,11 +1219,7 @@ static void DrawPager(const ViewState *s, int pages)
         n = strlen(strcpy(label, sSettingsPages[s->optPage]));
     else
         n = strlen(strcpy(label, "PAGE"));
-    label[n++] = ' ';
-    label[n++] = '1' + s->optPage;
-    label[n++] = '/';
-    label[n++] = '0' + pages;
-    label[n] = 0;
+    n += sprintf(label + n, " %d/%d", s->optPage + 1, pages);
     PagerKey(PAGER_PREV_X, TRUE, s->optPage > 0, s->pressed == HIT_PAGE_PREV);
     PagerKey(PAGER_NEXT_X, FALSE, s->optPage + 1 < pages, s->pressed == HIT_PAGE_NEXT);
     TextCentered(FONT_SMALL, Ascii(label), (PAGER_PREV_X + PAGER_KEY_W + PAGER_NEXT_X) / 2, BACK_Y + 4, C_WHITE, C_SLATE);
@@ -1192,19 +1240,27 @@ static void DrawOptions(const ViewState *s)
     OptRow rows[OPT_MAX_ROWS];
     int count = PageRows(s->optTab, s->optSub, rows), pages = PageCount(count);
 
-    Header(Ascii("OPTIONS"));
+    if (s->optTab == AWARDS_TAB)
+    {
+        char title[24];
+
+        sprintf(title, "AWARDS %u/%u", CtrAwards_WonCount(), CtrAwards_Count());
+        Header(Ascii(title));
+    }
+    else
+        Header(Ascii("OPTIONS"));
     FillRect(0, HEADER_H, W, H - HEADER_H, C_PAGE);
     RoundBox(LIST_X, LIST_Y, LIST_W, LIST_H, 5, C_CARD, C_LINE);
     /* the tabs, a Pokédex's index tabs; the chosen one opens into the list */
-    for (int t = 0; t < CTR_EXTRAS_PAGES; t++)
+    for (int t = 0; t < OPT_TABS; t++)
     {
-        int x = TAB_X + t * TAB_W;
+        int x = TAB_X + t * OPT_TAB_W;
         bool8 on = t == s->optTab, pressed = s->pressed == HIT_TAB + t;
 
-        RoundBox(x, TAB_Y, TAB_W - 2, TAB_H, 5, on ? C_CARD : pressed ? C_BAND : C_FLAT, on ? C_LINE : C_BAND_DK);
+        RoundBox(x, TAB_Y, OPT_TAB_W - 2, TAB_H, 5, on ? C_CARD : pressed ? C_BAND : C_FLAT, on ? C_LINE : C_BAND_DK);
         if (on)
-            FillRect(x + 1, LIST_Y, TAB_W - 4, TAB_Y + TAB_H - LIST_Y, C_CARD);
-        TextCentered(FONT_SMALL, Ascii(sTabNames[t]), x + TAB_W / 2 - 1, TAB_Y + 2,
+            FillRect(x + 1, LIST_Y, OPT_TAB_W - 4, TAB_Y + TAB_H - LIST_Y, C_CARD);
+        TextCentered(FONT_SMALL, Ascii(sTabNames[t]), x + OPT_TAB_W / 2 - 1, TAB_Y + 2,
                      on ? C_TEXT : C_WHITE, on ? C_TEXT_SH : C_BAND_DK);
     }
     for (int i = 0; i < OPT_PAGE_ROWS; i++)
@@ -1228,6 +1284,28 @@ static void DrawOptions(const ViewState *s)
             FillRect(x + 2, y - 1, w - 4, 1, C_LINE);
         if (kind != ROW_STEP && (pressed || pressedBack))
             RoundRect(x, y, w, h, 4, C_PINK);
+        if (ROW_AWARD(r))
+        {
+            /* an award: its name (or its words, tapped), and a tick when won */
+            unsigned a = ROW_AWARD_INDEX(r);
+            bool8 won = CtrAwards_Won(a), open = (int)a == sAwardOpen;
+
+            Text(FONT_SMALL, open ? AsciiLong(CtrAwards_Text(a)) : Ascii(CtrAwards_Name(a)), x + 4, y + 3,
+                 won || open ? C_TEXT : C_OFF, shade, TRUE);
+            if (!open)
+            {
+                RoundBox(x + w - 22, y + 3, 18, h - 6, 4, won ? C_GREEN : C_PAGE, won ? C_GREEN : C_LINE);
+                if (won)
+                {
+                    /* a tick */
+                    for (int k = 0; k < 4; k++)
+                        FillRect(x + w - 18 + k, y + 10 + k, 2, 2, C_WHITE);
+                    for (int k = 0; k < 7; k++)
+                        FillRect(x + w - 14 + k, y + 12 - k, 2, 2, C_WHITE);
+                }
+            }
+            continue;
+        }
         Text(FONT_SMALL, r->opt >= 0 ? OptionName(r->opt) : Ascii(r->extra->name), x + 4, y + 3, ink, shade, TRUE);
         if (kind == ROW_TOGGLE)
         {
@@ -1272,9 +1350,9 @@ static u8 OptionsHitTest(int x, int y)
 
     if (y >= TAB_Y && y < LIST_Y + 3)
     {
-        int t = (x - TAB_X) / TAB_W;
+        int t = (x - TAB_X) / OPT_TAB_W;
 
-        return x >= TAB_X && t < CTR_EXTRAS_PAGES ? HIT_TAB + t : HIT_NONE;
+        return x >= TAB_X && t < OPT_TABS ? HIT_TAB + t : HIT_NONE;
     }
     if (y >= FOOTER_Y)
     {
@@ -1308,7 +1386,7 @@ static void OptionsActivate(u8 hit)
         sScreen = SCR_MAP;
         return;
     }
-    if (hit >= HIT_TAB && hit < HIT_TAB + CTR_EXTRAS_PAGES)
+    if (hit >= HIT_TAB && hit < HIT_TAB + OPT_TABS)
     {
         u8 tab = hit - HIT_TAB;
 
@@ -1318,6 +1396,7 @@ static void OptionsActivate(u8 hit)
             sOptTab = tab;
             sOptSub = 0;
             sOptPage = 0;
+            sAwardOpen = -1;
         }
         return;
     }
@@ -1329,6 +1408,7 @@ static void OptionsActivate(u8 hit)
         {
             PlaySE(SE_SELECT);
             sOptPage = page;
+            sAwardOpen = -1;
         }
         return;
     }
@@ -1365,6 +1445,8 @@ static void SnapshotOptions(ViewState *s)
 
         s->optSig[i] = n < count ? RowSignature(&rows[n]) : 0;
     }
+    if (sOptTab == AWARDS_TAB)
+        s->optSig[0] = (s16)(s->optSig[0] * 31 + CtrAwards_WonCount());
 }
 
 /* ------------------------------------------------------------------------ */
@@ -4721,12 +4803,87 @@ void CtrBottom_Init(void)
     sDrawn = FALSE;
 }
 
+/*
+ * Awards (fr_awards.c): checked every frame, and each one won announced by a
+ * banner on the top screen for a few seconds (3ds_soft_video.c draws it,
+ * CtrBottom_Banner). The banner is drawn once, with the canvas' own text and
+ * boxes, into a picture of its own.
+ */
+#define BANNER_H 34
+#define BANNER_FRAMES 180
+#define BANNER_FADE 12
+static u16 sBanner[W * H];
+static u16 sBannerFrames;
+
+static void DrawCup(int x, int y)
+{
+    FillRect(x, y, 14, 3, C_GOLD);
+    FillRect(x + 1, y + 3, 12, 5, C_GOLD);
+    FillRect(x + 3, y + 8, 8, 2, C_GOLD);
+    FillRect(x + 5, y + 10, 4, 4, C_GOLD);
+    FillRect(x + 2, y + 14, 10, 3, C_GOLD);
+    FillRect(x - 3, y + 1, 3, 2, C_GOLD);
+    FillRect(x - 3, y + 3, 2, 3, C_GOLD);
+    FillRect(x + 14, y + 1, 3, 2, C_GOLD);
+    FillRect(x + 15, y + 3, 2, 3, C_GOLD);
+    FillRect(x + 4, y + 2, 2, 5, C_YELLOW);
+}
+
+static void DrawBanner(const char *name, int also)
+{
+    char line[40];
+
+    sDraw = sBanner;
+    FillRect(0, 0, W, BANNER_H, C_BAND_DK);
+    FillRect(2, 2, W - 4, BANNER_H - 4, C_BAND);
+    FillRect(2, 2, W - 4, 2, C_FLAT);
+    DrawCup(14, 8);
+    Text(FONT_SMALL, Ascii(name ? "AWARD WON" : "AWARDS WON"), 40, 3, C_GOLD, C_BAND_DK, TRUE);
+    if (name == NULL)
+        sprintf(line, "%d from your progress so far", also);
+    Text(FONT_NORMAL, name ? Ascii(name) : AsciiLong(line), 40, 15, C_WHITE, C_BAND_DK, TRUE);
+    sDraw = sCanvas;
+}
+
+static void AwardsFrame(void)
+{
+    const char *name;
+    int also;
+
+    CtrAwards_Frame(sInGame);
+    if (sBannerFrames)
+    {
+        sBannerFrames--;
+        return;
+    }
+    if (sInGame && CtrAwards_TakeBanner(&name, &also) >= 0)
+    {
+        DrawBanner(name, also);
+        sBannerFrames = BANNER_FRAMES;
+        PlaySE(SE_SUCCESS);
+        sDrawn = FALSE; /* the AWARDS tab, if it shows */
+    }
+}
+
+const uint16_t *CtrBottom_Banner(int *rows, int *alpha)
+{
+    int shown = BANNER_FRAMES - sBannerFrames;
+
+    if (sBannerFrames == 0)
+        return NULL;
+    *rows = BANNER_H;
+    *alpha = shown < BANNER_FADE ? shown * 255 / BANNER_FADE
+           : sBannerFrames < BANNER_FADE ? sBannerFrames * 255 / BANNER_FADE : 255;
+    return sBanner;
+}
+
 void CtrBottom_Frame(void)
 {
     ViewState now;
     u16 x, y;
     bool active;
 
+    AwardsFrame();
     PanelOnTopInput();
     active = ReadTouch(&x, &y);
 

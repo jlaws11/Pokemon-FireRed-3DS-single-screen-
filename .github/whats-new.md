@@ -1,5 +1,6 @@
 ## What's new
 
+- **Awards**: 56 achievements built into the game, with goals like the RetroAchievements set for GBA FireRed: the badges, gym leaders beaten with a small low-level team, every rival battle, Team Rocket, the gifts and in-game trades, the legendary Pokémon, the Kanto Pokédex and the Sevii Islands. A banner shows on the top screen when you win one; OPTIONS → **AWARDS** lists them all (tap one to read what it asks). They are kept in `awards.txt` beside your save. They are this game's own, not RetroAchievements (Azahar has none).
 - **Updated to the official FireRed 3DS 0.5.1**, which brings **visible wild Pokémon** (OPTIONS → ENHANCE → VISIBLE WILD: see which Pokémon walk in the grass, caves and water, and touch one to battle it), Mega Evolution, renewed Gym Leaders, Elite Four and wild Pokémon, and the physical/special split.
 - Single screen on 0.5.1's new bottom screen: its party, bag, summary, Pokédex and PC pages follow the game's own menu on the top screen, and the D-pad goes to that menu.
 
